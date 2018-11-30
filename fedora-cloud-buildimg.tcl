@@ -24,6 +24,7 @@ snit::type fedora-cloud-buildimg {
     option -verbose 0
     option -force no
     option -keep-mount 0
+    option -keep-raw 0
 
     option -platform gcp
     option -mount-dir /mnt/tmp
@@ -33,7 +34,7 @@ snit::type fedora-cloud-buildimg {
         set ::env(LANG) C
     }
 
-    #----------------------------------------
+    #========================================
     method build-from {srcXZFn {destRawFn ""}} {
         set destRawFn [$self traced prepare-raw $srcXZFn $destRawFn]
         set mountDir [$self traced mount-image $destRawFn]
@@ -41,6 +42,13 @@ snit::type fedora-cloud-buildimg {
         if {!$options(-keep-mount)} {
             $self run exec umount $mountDir
         }
+        set resultFn [$self traced $options(-platform) pack-to \
+                          [$self $options(-platform) image-name-for $srcXZFn]\
+                          $destRawFn]
+        if {!$options(-keep-raw)} {
+            $self run file delete $destRawFn
+        }
+        set resultFn
     }
 
     #----------------------------------------
@@ -51,18 +59,34 @@ snit::type fedora-cloud-buildimg {
             error "source image must be .raw.xz format"
         }
         if {$destRawFn eq ""} {
-            set destRawFn [$self image-name-for $srcXZFn]
+            set destRawFn [$self raw-name-for $srcXZFn]
         }
         $self run exec xzcat $srcXZFn > $destRawFn
         set destRawFn
     }
-    method image-name-for srcXZFn {
-        return $options(-platform)-[file rootname [file tail $srcXZFn]]
+    method raw-name-for srcXZFn {
+        set meth [list $options(-platform) raw-name-for]
+        if {[$self info methods $meth] ne ""} {
+            $self {*}$meth
+        } else {
+            return $options(-platform)-[file rootname [file tail $srcXZFn]]
+        }
     }
 
     #========================================
     # platform specific installation
     #
+    method {gcp pack-to} {packFn rawFn} {
+        $self run exec tar zcf $packFn $rawFn \
+            >@ stdout 2>@ stderr
+        set packFn
+    }
+    method {gcp image-name-for} srcXZFn {
+        return $options(-platform)-[file rootname [file rootname [file tail $srcXZFn]]].tar.gz
+    }
+    method {gcp raw-name-for} args {
+        return disk.raw
+    }
     method {gcp install-to} mountDir {
         $self run exec rsync -av [$self appdir]/sysroot/ $mountDir \
              >@ stdout 2>@ stderr
@@ -101,7 +125,12 @@ snit::type fedora-cloud-buildimg {
     }
 
     method read-start-section {diskImg {partNo 0}} {
-        dict get [lindex [$self read-partitions $diskImg] $partNo] start
+        if {$options(-dry-run) && ![file readable $diskImg]} {
+            puts "# ...using fake sector number"
+            return 2048
+        } else {
+            dict get [lindex [$self read-partitions $diskImg] $partNo] start
+        }
     }
 
     method read-partitions diskImg {
