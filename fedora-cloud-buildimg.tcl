@@ -37,7 +37,7 @@ snit::type fedora-cloud-buildimg {
     method build-from {srcXZFn {destRawFn ""}} {
         set destRawFn [$self traced prepare-raw $srcXZFn $destRawFn]
         set mountDir [$self traced mount-image $destRawFn]
-        $self traced install-to $mountDir
+        $self traced $options(-platform) install-to $mountDir
         if {!$options(-keep-mount)} {
             $self run exec umount $mountDir
         }
@@ -60,8 +60,10 @@ snit::type fedora-cloud-buildimg {
         return $options(-platform)-[file rootname [file tail $srcXZFn]]
     }
 
-    #----------------------------------------
-    method install-to mountDir {
+    #========================================
+    # platform specific installation
+    #
+    method {gcp install-to} mountDir {
         $self run exec rsync -av [$self appdir]/sysroot/ $mountDir \
              >@ stdout 2>@ stderr
 
@@ -148,5 +150,5 @@ if {![info level] && [info script] eq $::argv0} {
         error "Usage: [file tail [set fedora-cloud-buildimg::realScriptFile]] COMMAND ARGS..."
     }
 
-    puts [.obj {*}$argv]
+    puts [join [.obj {*}$argv] \n]
 }
