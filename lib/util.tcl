@@ -1,5 +1,13 @@
 # -*- mode: tcl; coding: utf-8 -*-
 
+proc string-or {str args} {
+    foreach str [list $str {*}$args] {
+        if {$str ne ""} {
+            return $str
+        }
+    }
+}
+
 proc posix-getopt {argVar {dict ""} {shortcut ""}} {
     upvar 1 $argVar args
     set result {}
