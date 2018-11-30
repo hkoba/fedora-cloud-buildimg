@@ -22,9 +22,34 @@ snit::type fedora-cloud-buildimg {
 
     option -dry-run no
     option -verbose 0
+    option -force no
 
     option -platform gcp
     option -mount-dir /mnt/tmp
+
+    constructor args {
+        $self configurelist $args
+        set ::env(LANG) C
+    }
+
+    #----------------------------------------
+    method install-to mountDir {
+        $self run exec rsync -av [$self appdir]/sysroot/ $mountDir \
+             >@ stdout 2>@ stderr
+
+        $self run exec cp /etc/resolv.conf $mountDir/etc
+
+        $self run exec -ignorestderr chroot $mountDir \
+            dnf -vvvv install {*}[$self dnf-options]\
+            -y google-compute-engine \
+            >@ stdout 2>@ stderr
+
+        $self run exec -ignorestderr chroot $mountDir\
+            dnf clean all \
+            >@ stdout 2>@ stderr
+
+        $self run exec cp /dev/null $mountDir/etc/resolv.conf
+    }
 
     #----------------------------------------
 
@@ -60,6 +85,15 @@ snit::type fedora-cloud-buildimg {
             $self {*}$args
         } else {
             $cmd {*}$args
+        }
+    }
+    #----------------------------------------
+    method appdir {} {
+        return [file dirname [set ${type}::realScriptFile]]/$options(-platform)
+    }
+    method dnf-options {} {
+        if {$options(-force)} {
+            list --nogpgcheck
         }
     }
 }
