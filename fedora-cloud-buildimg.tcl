@@ -11,6 +11,9 @@ package require snit
 package require fileutil
 package require json
 package require http
+if {![catch {package require tls}]} {
+    http::register https 443 tls::socket
+}
 
 namespace eval fedora-cloud-buildimg {
     ::variable realScriptFile [::fileutil::fullnormalize [info script]]
