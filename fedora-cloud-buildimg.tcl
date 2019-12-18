@@ -83,13 +83,25 @@ snit::type fedora-cloud-buildimg {
     }
 
     #========================================
+    method build-version {ver} {
+        set fn [$self image prepare $ver]
+        $self build-from $fn
+    }
+
     method build-from {srcXZFn {destRawFn ""}} {
         set destRawFn [$self traced prepare-raw $srcXZFn $destRawFn]
         set mountDir [$self traced mount-image $destRawFn]
-        $self traced $options(-platform) install-to $mountDir
-        if {!$options(-keep-mount)} {
-            $self run exec umount $mountDir
+        $self traced $options(-platform) install
+        $self finalize $srcXZFn
+    }
+
+    method finalize {srcXZFn {destRawFn ""}} {
+        if {$destRawFn eq ""} {
+            set destRawFn [$self raw-name-for $srcXZFn]
         }
+
+        $self traced $options(-platform) cleanup
+
         set resultFn [$self traced $options(-platform) pack-to \
                           [$self $options(-platform) image-name-for $srcXZFn]\
                           $destRawFn]
@@ -135,37 +147,57 @@ snit::type fedora-cloud-buildimg {
     method {gcp raw-name-for} args {
         return disk.raw
     }
-    method {gcp install-to} mountDir {
-        $self run exec rsync -av [$self appdir]/sysroot/ $mountDir \
-             >@ stdout 2>@ stderr
+    method {gcp install} {} {
+        $self sudo-exec-echo \
+            cp /etc/resolv.conf $options(-mount-dir)/etc
+        
+        $self sudo-exec-echo \
+            rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
 
-        $self run exec cp /etc/resolv.conf $mountDir/etc
+        $self chroot-exec-echo \
+            dnf -y copr enable ngompa/gce-oslogin
 
-        $self run exec -ignorestderr chroot $mountDir \
-            dnf -y copr enable ngompa/gce-oslogin \
-            >@ stdout 2>@ stderr
-
-        $self run exec -ignorestderr chroot $mountDir \
+        $self chroot-exec-echo \
             dnf -vvvv install {*}[$self dnf-options]\
-            -y google-compute-engine \
+            -y google-compute-engine {*}[$self package-list]
+    }
+    
+    method {gcp cleanup} {} {
+        $self chroot-exec-echo \
+            dnf clean all
+
+        $self sudo-exec-echo \
+            cp /dev/null $options(-mount-dir)/etc/resolv.conf
+
+        $self chroot-exec-echo \
+            fstrim /
+
+        if {!$options(-keep-mount)} {
+            $self run exec sudo umount $options(-mount-dir)
+        }
+    }
+    }
+    method sudo-exec-echo args {
+        $self run exec sudo {*}$args \
+             >@ stdout 2>@ stderr
+    }
+
+    method chroot-exec-echo args {
+        $self run exec -ignorestderr sudo chroot $options(-mount-dir) \
+            {*}$args \
             >@ stdout 2>@ stderr
 
-        $self run exec -ignorestderr chroot $mountDir\
-            dnf clean all \
-            >@ stdout 2>@ stderr
-
-        $self run exec cp /dev/null $mountDir/etc/resolv.conf
     }
 
     #----------------------------------------
 
     method mount-image {diskImg {mountDir ""}} {
         set mountDir [string-or $mountDir $options(-mount-dir)]
-        $self run exec mount \
+        $self run exec sudo mount \
             -t auto \
             -o loop,offset=[$self read-start-offset $diskImg] \
             $diskImg $mountDir
-        set mountDir
+        set options(-mount-dir) $mountDir
     }
 
     method read-start-offset {diskImg {partNo 0}} {
