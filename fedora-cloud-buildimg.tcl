@@ -173,6 +173,17 @@ snit::type fedora-cloud-buildimg {
     method {common prepare} {} {
         $self sudo-exec-echo \
             cp /etc/resolv.conf $options(-mount-dir)/etc
+        
+        $self sudo-exec-echo \
+            mount -t proc /proc $options(-mount-dir)/proc
+        $self sudo-exec-echo \
+            mount --rbind /sys $options(-mount-dir)/sys
+        $self sudo-exec-echo \
+            mount --make-rslave $options(-mount-dir)/sys
+        $self sudo-exec-echo \
+            mount --rbind /dev $options(-mount-dir)/dev
+        $self sudo-exec-echo \
+            mount --make-rslave $options(-mount-dir)/dev
     }
 
     method {gcp install} {} {
@@ -204,7 +215,7 @@ snit::type fedora-cloud-buildimg {
 
     method umount {} {
         $self sudo-exec-echo \
-            umount $options(-mount-dir)
+            umount -AR $options(-mount-dir)
     }
     method sudo-exec-echo args {
         $self run exec sudo {*}$args \
