@@ -25,6 +25,11 @@ source [file dirname [fileutil::fullnormalize [info script]]]/libtcl/tcl-expectn
 
 #----------------------------------------
 
+namespace eval fedora-cloud-buildimg {
+    ::variable realScriptFn [fileutil::fullnormalize [info script]]
+    ::variable scriptDir [file dirname $realScriptFn]
+}
+
 snit::type fedora-cloud-buildimg {
 
     option -dry-run no
@@ -231,31 +236,30 @@ snit::type fedora-cloud-buildimg {
             mount --make-rslave $options(-mount-dir)/dev
     }
 
+    option -xterm mlterm
+
     method {gcp install} {} {
-        $self setup-chroot
-        
         $self sudo-exec-echo \
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
 
-        set MARKER "///////////////---------------////////////////////"
-
         if {$options(-update-all)} {
-            $self chroot send-and-wait $MARKER \
-                "[list dnf -vvvv update -y --allowerasing {*}[$self dnf-options]]; echo $MARKER" \
-                -timeout $options(-dnf-timeout)
+            $self run exec {*}$options(-xterm) \
+                -T "Update all" \
+                -e [set ${type}::scriptDir]/run-and-wait.zsh \
+                sudo chroot $options(-mount-dir) \
+                dnf -vvvv update -y --allowerasing {*}[$self dnf-options]
         } else {
-            $self chroot send-and-wait $MARKER \
-                "dnf -vvvv update -y fedora-gpg-keys; echo $MARKER" \
-                -timeout $options(-dnf-timeout)
+            $self run exec {*}$options(-xterm) \
+                -T "Update fedora-gpg-keys" \
+                -e [set ${type}::scriptDir]/run-and-wait.zsh \
+                sudo chroot $options(-mount-dir) \
+                dnf -vvvv update -y fedora-gpg-keys
         }
 
-        $self chroot send-and-wait $MARKER \
-            "[list dnf -vvvv install -y --allowerasing {*}[$self dnf-options]\
-                 {*}$options(-additional-packages) \
-                 google-compute-engine-tools]; echo $MARKER" \
-            -timeout $options(-dnf-timeout)
-        
-        $self cleanup-chroot
+        $self chroot-exec-echo \
+            dnf -vvvv install -y --allowerasing {*}[$self dnf-options]\
+            {*}$options(-additional-packages) \
+            google-compute-engine-tools
     }
     
     method {gcp cleanup} {} {
