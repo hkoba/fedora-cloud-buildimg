@@ -178,6 +178,12 @@ snit::type fedora-cloud-buildimg {
         $self sudo-exec-echo \
             cp /etc/resolv.conf $options(-mount-dir)/etc
         
+        if {0} {
+            $self mount-sysfs
+        }
+    }
+    
+    method mount-sysfs {} {
         $self sudo-exec-echo \
             mount -t proc /proc $options(-mount-dir)/proc
         $self sudo-exec-echo \
