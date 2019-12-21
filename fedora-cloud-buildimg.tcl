@@ -38,6 +38,8 @@ snit::type fedora-cloud-buildimg {
     option -image-glob Fedora-Cloud-Base-*.raw.xz
 
     option -update yes
+    option -additional-packages {zsh perl git tcl tcllib}
+
     constructor args {
         $self configurelist $args
         set ::env(LANG) C
@@ -184,8 +186,9 @@ snit::type fedora-cloud-buildimg {
         }
 
         $self chroot-exec-echo \
-            dnf -vvvv install --allowerasing {*}[$self dnf-options]\
-            -y zsh google-compute-engine-tools
+            dnf -vvvv install -y --allowerasing {*}[$self dnf-options]\
+            {*}$options(-additional-packages) \
+            google-compute-engine-tools
     }
     
     method {gcp cleanup} {} {
