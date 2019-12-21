@@ -218,9 +218,36 @@ snit::type fedora-cloud-buildimg {
     }
 
     method umount {} {
+        set dev [$self find-loop-device]
         $self sudo-exec-echo \
             umount -AR $options(-mount-dir)
+        if {$dev in [$self list-used-loop-devices]} {
+            $self sudo-exec-echo \
+                losetup -d $dev
+        }
+        if {$dev in [$self list-used-loop-devices]} {
+            error "Loop device is still in use! $dev"
+        }
     }
+    
+    method list-used-loop-devices {} {
+        set pipe [open [list | sudo losetup -l -n --raw]]
+        set result []
+        while {[gets $pipe line] >= 0} {
+            lappend result [lindex $line 0]
+        }
+        set result
+    }
+
+    method find-loop-device {} {
+        foreach line [$self read_file_lines /proc/mounts] {
+            if {[regexp "^(/dev/loop\\d+)\\s+$options(-mount-dir)\\s+" $line \
+                     -> dev]} {
+                return $dev
+            }
+        }
+    }
+
     method sudo-exec-echo args {
         $self run exec sudo {*}$args \
              >@ stdout 2>@ stderr
@@ -301,6 +328,15 @@ snit::type fedora-cloud-buildimg {
         if {$options(-force)} {
             list --nogpgcheck
         }
+    }
+    method read_file_lines {fn} {
+        set fh [open $fn]
+        set lines []
+        while {[gets $fh line] >= 0} {
+            lappend lines $line
+        }
+        close $fh
+        set lines
     }
 }
 
