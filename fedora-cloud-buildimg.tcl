@@ -52,7 +52,13 @@ snit::type fedora-cloud-buildimg {
         set ::env(LANG) C
     }
 
-    method {setup chroot} args {
+    method cleanup-chroot {} {
+        if {$myChroot ne ""} return
+        $myChroot destroy
+        set myChroot ""
+    }
+
+    method setup-chroot args {
         if {$myChroot ne ""} return
 
         install myChroot using expectnit $self.chroot
@@ -225,7 +231,7 @@ snit::type fedora-cloud-buildimg {
     }
 
     method {gcp install} {} {
-        $self setup chroot
+        $self setup-chroot
         
         $self sudo-exec-echo \
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
@@ -242,6 +248,7 @@ snit::type fedora-cloud-buildimg {
             dnf -vvvv install -y --allowerasing {*}[$self dnf-options]\
             {*}$options(-additional-packages) \
             google-compute-engine-tools
+        $self cleanup-chroot
     }
     
     method {gcp cleanup} {} {
