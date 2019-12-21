@@ -86,15 +86,20 @@ snit::type fedora-cloud-buildimg {
     }
 
     #========================================
-    method build-version {ver} {
+    method build-version {ver args} {
         set fn [$self image prepare $ver]
-        $self build-from $fn
+        $self build-from $fn {*}$args
     }
 
-    method build-from {srcXZFn {destRawFn ""}} {
-        set destRawFn [$self traced prepare-raw $srcXZFn $destRawFn]
+    method build-from {srcXZFn args} {
+        set destRawFn [$self traced prepare-raw $srcXZFn]
         set mountDir [$self traced mount-image $destRawFn]
         $self traced $options(-platform) install
+        
+        if {$args ne ""} {
+            $self {*}$args
+        }
+
         $self finalize $srcXZFn
     }
 
