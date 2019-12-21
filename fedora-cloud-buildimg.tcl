@@ -36,6 +36,8 @@ snit::type fedora-cloud-buildimg {
     option -dist-url https://download.fedoraproject.org/pub/fedora/linux/releases/%d/Cloud/x86_64/images/
 
     option -image-glob Fedora-Cloud-Base-*.raw.xz
+
+    option -update yes
     constructor args {
         $self configurelist $args
         set ::env(LANG) C
@@ -175,6 +177,11 @@ snit::type fedora-cloud-buildimg {
         
         $self sudo-exec-echo \
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
+
+        if {$options(-update)} {
+            $self chroot-exec-echo \
+                dnf -vvvv update -y --allowerasing {*}[$self dnf-options]
+        }
 
         $self chroot-exec-echo \
             dnf -vvvv install --allowerasing {*}[$self dnf-options]\
