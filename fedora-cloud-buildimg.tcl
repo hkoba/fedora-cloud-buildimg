@@ -94,6 +94,9 @@ snit::type fedora-cloud-buildimg {
     method build-from {srcXZFn args} {
         set destRawFn [$self traced prepare-raw $srcXZFn]
         set mountDir [$self traced mount-image $destRawFn]
+
+        $self common prepare
+
         $self traced $options(-platform) install
         
         if {$args ne ""} {
@@ -155,9 +158,13 @@ snit::type fedora-cloud-buildimg {
     method {gcp raw-name-for} args {
         return disk.raw
     }
-    method {gcp install} {} {
+
+    method {common prepare} {} {
         $self sudo-exec-echo \
             cp /etc/resolv.conf $options(-mount-dir)/etc
+    }
+
+    method {gcp install} {} {
         
         $self sudo-exec-echo \
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
