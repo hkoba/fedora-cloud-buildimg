@@ -96,8 +96,7 @@ snit::type fedora-cloud-buildimg {
     }
 
     method build-from {srcXZFn args} {
-        set destRawFn [$self traced prepare-raw $srcXZFn]
-        set mountDir [$self traced mount-image $destRawFn]
+        $self traced prepare-mount $srcXZFn
 
         $self common prepare
 
@@ -108,6 +107,11 @@ snit::type fedora-cloud-buildimg {
         }
 
         $self finalize $srcXZFn
+    }
+
+    method prepare-mount srcXZFn {
+        set destRawFn [$self traced prepare-raw $srcXZFn]
+        set mountDir [$self traced mount-image $destRawFn]
     }
 
     method finalize {srcXZFn {destRawFn ""}} {
