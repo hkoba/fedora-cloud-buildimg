@@ -222,16 +222,26 @@ snit::type fedora-cloud-buildimg {
     }
     
     method mount-sysfs {} {
+        # $self sudo-exec-echo \
+        #     mount -t proc /proc $options(-mount-dir)/proc
+        # $self sudo-exec-echo \
+        #     mount --rbind /sys $options(-mount-dir)/sys
+        # $self sudo-exec-echo \
+        #     mount --make-rslave $options(-mount-dir)/sys
+
+        # $self sudo-exec-echo \
+        #     mount --rbind /dev $options(-mount-dir)/dev
+        # $self sudo-exec-echo \
+        #     mount --make-rslave $options(-mount-dir)/dev
+
         $self sudo-exec-echo \
-            mount -t proc /proc $options(-mount-dir)/proc
-        $self sudo-exec-echo \
-            mount --rbind /sys $options(-mount-dir)/sys
-        $self sudo-exec-echo \
-            mount --make-rslave $options(-mount-dir)/sys
-        $self sudo-exec-echo \
-            mount --rbind /dev $options(-mount-dir)/dev
-        $self sudo-exec-echo \
-            mount --make-rslave $options(-mount-dir)/dev
+            mount -t devtmpfs devtmpfs $options(-mount-dir)/dev
+    }
+
+    method umount-sysfs {} {
+        # $self sudo-exec-echo umount $options(-mount-dir)/proc
+        # $self sudo-exec-echo umount $options(-mount-dir)/sys 
+        $self sudo-exec-echo umount $options(-mount-dir)/dev
     }
 
     option -xterm mlterm
@@ -267,6 +277,8 @@ snit::type fedora-cloud-buildimg {
 
     method umount {} {
         set dev [$self find-loop-device]
+        $self umount-sysfs
+        
         $self sudo-exec-echo \
             umount -AR $options(-mount-dir)
         if {$dev in [$self list-used-loop-devices]} {
