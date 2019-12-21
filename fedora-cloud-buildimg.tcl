@@ -173,8 +173,8 @@ snit::type fedora-cloud-buildimg {
             dnf -y copr enable ngompa/gce-oslogin
 
         $self chroot-exec-echo \
-            dnf -vvvv install {*}[$self dnf-options]\
-            -y google-compute-engine {*}[$self package-list]
+            dnf -vvvv install --allowerasing {*}[$self dnf-options]\
+            -y zsh google-compute-engine-tools
     }
     
     method {gcp cleanup} {} {
@@ -188,9 +188,13 @@ snit::type fedora-cloud-buildimg {
             fstrim /
 
         if {!$options(-keep-mount)} {
-            $self run exec sudo umount $options(-mount-dir)
+            $self umount
         }
     }
+
+    method umount {} {
+        $self sudo-exec-echo \
+            umount $options(-mount-dir)
     }
     method sudo-exec-echo args {
         $self run exec sudo {*}$args \
