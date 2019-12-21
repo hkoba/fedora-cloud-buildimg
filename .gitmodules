@@ -1,0 +1,3 @@
+[submodule "libtcl/tcl-expectnit"]
+	path = libtcl/tcl-expectnit
+	url = https://github.com/hkoba/tcl-expectnit
