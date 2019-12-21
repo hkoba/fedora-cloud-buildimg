@@ -170,9 +170,6 @@ snit::type fedora-cloud-buildimg {
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
 
         $self chroot-exec-echo \
-            dnf -y copr enable ngompa/gce-oslogin
-
-        $self chroot-exec-echo \
             dnf -vvvv install --allowerasing {*}[$self dnf-options]\
             -y zsh google-compute-engine-tools
     }
