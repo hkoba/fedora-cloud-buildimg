@@ -7,6 +7,7 @@ exec tclsh -encoding utf-8 "$0" ${1+"$@"}
 # requires /usr/sbin/sfdisk
 #
 
+package require fileutil
 package require snit
 package require fileutil
 package require json
@@ -19,6 +20,8 @@ namespace eval fedora-cloud-buildimg {
     ::variable realScriptFile [::fileutil::fullnormalize [info script]]
     source [file dirname $realScriptFile]/lib/util.tcl
 }
+
+source [file dirname [fileutil::fullnormalize [info script]]]/libtcl/tcl-expectnit/expectnit.tcl
 
 #----------------------------------------
 
@@ -40,9 +43,34 @@ snit::type fedora-cloud-buildimg {
     option -update-all no
     option -additional-packages {zsh perl git tcl tcllib}
 
+    option -sudo-askpass-path /usr/libexec/openssh/gnome-ssh-askpass
+
+    component myChroot -public chroot
+
     constructor args {
         $self configurelist $args
         set ::env(LANG) C
+    }
+
+    method {setup chroot} args {
+        if {$myChroot ne ""} return
+
+        install myChroot using expectnit $self.chroot
+        
+        if {$args eq ""} {
+            set args /bin/sh
+        }
+
+        set sudo [list sudo]
+        if {$options(-sudo-askpass-path) ne ""} {
+            set sudo [list env SUDO_ASKPASS=$options(-sudo-askpass-path) \
+                         {*}$sudo -A]
+        }
+
+        $myChroot spawn {*}$sudo \
+            chroot $options(-mount-dir) {*}$args
+        
+        $self chroot wait-prompt
     }
 
     #========================================
@@ -197,19 +225,20 @@ snit::type fedora-cloud-buildimg {
     }
 
     method {gcp install} {} {
+        $self setup chroot
         
         $self sudo-exec-echo \
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
 
         if {$options(-update-all)} {
-            $self chroot-exec-echo \
+            $self chroot call \
                 dnf -vvvv update -y --allowerasing {*}[$self dnf-options]
         } else {
-            $self chroot-exec-echo \
+            $self chroot call \
                 dnf -vvvv update -y fedora-gpg-keys
         }
 
-        $self chroot-exec-echo \
+        $self chroot call \
             dnf -vvvv install -y --allowerasing {*}[$self dnf-options]\
             {*}$options(-additional-packages) \
             google-compute-engine-tools
@@ -358,5 +387,9 @@ if {![info level] && [info script] eq $::argv0} {
         error "Usage: [file tail [set fedora-cloud-buildimg::realScriptFile]] COMMAND ARGS..."
     }
 
-    puts [join [.obj {*}$argv] \n]
+    if {[string is list [set result [.obj {*}$argv]]]} {
+        puts [join $result \n]
+    } else {
+        puts $result
+    }
 }
