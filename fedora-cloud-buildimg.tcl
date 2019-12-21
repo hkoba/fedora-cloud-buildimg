@@ -107,11 +107,18 @@ snit::type fedora-cloud-buildimg {
     }
 
     method finalize {srcXZFn {destRawFn ""}} {
+        $self traced $options(-platform) cleanup
+
+        if {$options(-keep-mount)} {
+            $self sudo-exec-echo \
+                mount -o remount,ro $options(-mount-dir)
+        } else {
+            $self umount
+        }
+
         if {$destRawFn eq ""} {
             set destRawFn [$self raw-name-for $srcXZFn]
         }
-
-        $self traced $options(-platform) cleanup
 
         set resultFn [$self traced $options(-platform) pack-to \
                           [$self $options(-platform) image-name-for $srcXZFn]\
@@ -183,10 +190,6 @@ snit::type fedora-cloud-buildimg {
 
         $self chroot-exec-echo \
             fstrim /
-
-        if {!$options(-keep-mount)} {
-            $self umount
-        }
     }
 
     method umount {} {
