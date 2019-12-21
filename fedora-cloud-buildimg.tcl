@@ -25,7 +25,7 @@ namespace eval fedora-cloud-buildimg {
 snit::type fedora-cloud-buildimg {
 
     option -dry-run no
-    option -verbose 0
+    option -verbose 1
     option -force no
     option -keep-mount 0
     option -keep-raw 0
@@ -98,15 +98,15 @@ snit::type fedora-cloud-buildimg {
     method build-from {srcXZFn args} {
         $self traced prepare-mount $srcXZFn
 
-        $self common prepare
+        $self traced common prepare
 
         $self traced $options(-platform) install
         
         if {$args ne ""} {
-            $self {*}$args
+            $self traced {*}$args
         }
 
-        $self finalize $srcXZFn
+        $self traced finalize $srcXZFn
     }
 
     method prepare-mount srcXZFn {
@@ -121,7 +121,7 @@ snit::type fedora-cloud-buildimg {
             $self sudo-exec-echo \
                 mount -o remount,ro $options(-mount-dir)
         } else {
-            $self umount
+            $self traced umount
         }
 
         if {$destRawFn eq ""} {
