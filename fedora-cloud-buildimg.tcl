@@ -218,9 +218,7 @@ snit::type fedora-cloud-buildimg {
         $self sudo-exec-echo \
             cp /etc/resolv.conf $options(-mount-dir)/etc
         
-        if {0} {
-            $self mount-sysfs
-        }
+        $self mount-sysfs
     }
     
     method mount-sysfs {} {
@@ -243,16 +241,10 @@ snit::type fedora-cloud-buildimg {
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
 
         if {$options(-update-all)} {
-            $self run exec {*}$options(-xterm) \
-                -T "Update all" \
-                -e [set ${type}::scriptDir]/run-and-wait.zsh \
-                sudo chroot $options(-mount-dir) \
+            $self chroot-exec-echo \
                 dnf -vvvv update -y --allowerasing {*}[$self dnf-options]
         } else {
-            $self run exec {*}$options(-xterm) \
-                -T "Update fedora-gpg-keys" \
-                -e [set ${type}::scriptDir]/run-and-wait.zsh \
-                sudo chroot $options(-mount-dir) \
+            $self chroot-exec-echo \
                 dnf -vvvv update -y fedora-gpg-keys
         }
 
