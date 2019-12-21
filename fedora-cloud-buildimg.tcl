@@ -37,7 +37,7 @@ snit::type fedora-cloud-buildimg {
 
     option -image-glob Fedora-Cloud-Base-*.raw.xz
 
-    option -update yes
+    option -update-all no
     option -additional-packages {zsh perl git tcl tcllib}
 
     constructor args {
@@ -201,9 +201,12 @@ snit::type fedora-cloud-buildimg {
         $self sudo-exec-echo \
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
 
-        if {$options(-update)} {
+        if {$options(-update-all)} {
             $self chroot-exec-echo \
                 dnf -vvvv update -y --allowerasing {*}[$self dnf-options]
+        } else {
+            $self chroot-exec-echo \
+                dnf -vvvv update -y fedora-gpg-keys
         }
 
         $self chroot-exec-echo \
