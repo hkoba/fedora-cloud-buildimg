@@ -46,6 +46,7 @@ snit::type fedora-cloud-buildimg {
     option -sudo-askpass-path /usr/libexec/openssh/gnome-ssh-askpass
 
     component myChroot -public chroot
+    option -dnf-timeout 600
 
     constructor args {
         $self configurelist $args
@@ -236,18 +237,24 @@ snit::type fedora-cloud-buildimg {
         $self sudo-exec-echo \
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
 
+        set MARKER "///////////////---------------////////////////////"
+
         if {$options(-update-all)} {
-            $self chroot call \
-                dnf -vvvv update -y --allowerasing {*}[$self dnf-options]
+            $self chroot send-and-wait $MARKER \
+                "[list dnf -vvvv update -y --allowerasing {*}[$self dnf-options]]; echo $MARKER" \
+                -timeout $options(-dnf-timeout)
         } else {
-            $self chroot call \
-                dnf -vvvv update -y fedora-gpg-keys
+            $self chroot send-and-wait $MARKER \
+                "dnf -vvvv update -y fedora-gpg-keys; echo $MARKER" \
+                -timeout $options(-dnf-timeout)
         }
 
-        $self chroot call \
-            dnf -vvvv install -y --allowerasing {*}[$self dnf-options]\
-            {*}$options(-additional-packages) \
-            google-compute-engine-tools
+        $self chroot send-and-wait $MARKER \
+            "[list dnf -vvvv install -y --allowerasing {*}[$self dnf-options]\
+                 {*}$options(-additional-packages) \
+                 google-compute-engine-tools]; echo $MARKER" \
+            -timeout $options(-dnf-timeout)
+        
         $self cleanup-chroot
     }
     
