@@ -222,8 +222,12 @@ snit::type fedora-cloud-buildimg {
     }
     
     method mount-sysfs {} {
-        # $self sudo-exec-echo \
-        #     mount -t proc /proc $options(-mount-dir)/proc
+        $self sudo-exec-echo \
+            mount -t proc /proc $options(-mount-dir)/proc
+
+        $self sudo-exec-echo \
+            mount -t sysfs sysfs  $options(-mount-dir)/sys
+
         # $self sudo-exec-echo \
         #     mount --rbind /sys $options(-mount-dir)/sys
         # $self sudo-exec-echo \
@@ -239,8 +243,8 @@ snit::type fedora-cloud-buildimg {
     }
 
     method umount-sysfs {} {
-        # $self sudo-exec-echo umount $options(-mount-dir)/proc
-        # $self sudo-exec-echo umount $options(-mount-dir)/sys 
+        $self sudo-exec-echo umount $options(-mount-dir)/proc
+        $self sudo-exec-echo umount $options(-mount-dir)/sys 
         $self sudo-exec-echo umount $options(-mount-dir)/dev
     }
 
