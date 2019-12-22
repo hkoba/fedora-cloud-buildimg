@@ -38,7 +38,7 @@ snit::type fedora-cloud-buildimg {
     option -keep-mount 0
     option -keep-raw 0
 
-    option -platform gcp
+    option -platform gce
     option -mount-dir /mnt/tmp
 
     option -dist-url https://download.fedoraproject.org/pub/fedora/linux/releases/%d/Cloud/x86_64/images/
@@ -202,15 +202,15 @@ snit::type fedora-cloud-buildimg {
     #========================================
     # platform specific installation
     #
-    method {gcp pack-to} {packFn rawFn} {
+    method {gce pack-to} {packFn rawFn} {
         $self run exec tar zcf $packFn $rawFn \
             >@ stdout 2>@ stderr
         set packFn
     }
-    method {gcp image-name-for} srcXZFn {
+    method {gce image-name-for} srcXZFn {
         return $options(-platform)-[file rootname [file rootname [file tail $srcXZFn]]].tar.gz
     }
-    method {gcp raw-name-for} args {
+    method {gce raw-name-for} args {
         return disk.raw
     }
 
@@ -246,7 +246,7 @@ snit::type fedora-cloud-buildimg {
 
     option -xterm mlterm
 
-    method {gcp install} {} {
+    method {gce install} {} {
         $self sudo-exec-echo \
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
 
@@ -264,7 +264,7 @@ snit::type fedora-cloud-buildimg {
             google-compute-engine-tools
     }
     
-    method {gcp cleanup} {} {
+    method {gce cleanup} {} {
         $self chroot-exec-echo \
             dnf clean all
 
