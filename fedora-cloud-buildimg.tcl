@@ -21,8 +21,6 @@ namespace eval fedora-cloud-buildimg {
     source [file dirname $realScriptFile]/lib/util.tcl
 }
 
-source [file dirname [fileutil::fullnormalize [info script]]]/libtcl/tcl-expectnit/expectnit.tcl
-
 #----------------------------------------
 
 namespace eval fedora-cloud-buildimg {
@@ -48,41 +46,9 @@ snit::type fedora-cloud-buildimg {
     option -update-all no
     option -additional-packages {zsh perl git tcl tcllib}
 
-    option -sudo-askpass-path /usr/libexec/openssh/gnome-ssh-askpass
-
-    component myChroot -public chroot
-    option -dnf-timeout 600
-
     constructor args {
         $self configurelist $args
         set ::env(LANG) C
-    }
-
-    method cleanup-chroot {} {
-        if {$myChroot ne ""} return
-        $myChroot destroy
-        set myChroot ""
-    }
-
-    method setup-chroot args {
-        if {$myChroot ne ""} return
-
-        install myChroot using expectnit $self.chroot
-        
-        if {$args eq ""} {
-            set args /bin/sh
-        }
-
-        set sudo [list sudo]
-        if {$options(-sudo-askpass-path) ne ""} {
-            set sudo [list env SUDO_ASKPASS=$options(-sudo-askpass-path) \
-                         {*}$sudo -A]
-        }
-
-        $myChroot spawn {*}$sudo \
-            chroot $options(-mount-dir) {*}$args
-        
-        $self chroot wait-prompt
     }
 
     #========================================
