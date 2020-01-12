@@ -38,6 +38,10 @@ snit::type fedora-cloud-buildimg {
 
     option -platform gce
     option -mount-dir /mnt/disk
+    option -upload-dir ""
+    option -upload-to /root/uploaded
+    option -tools-dir ""
+    option -tools-copy-to /root/tools
 
     option -dist-url https://download.fedoraproject.org/pub/fedora/linux/releases/%d/Cloud/x86_64/images/
 
@@ -186,6 +190,9 @@ snit::type fedora-cloud-buildimg {
             cp /etc/resolv.conf $options(-mount-dir)/etc
         
         $self mount-sysfs
+        
+        $self upload-dir ensure mount
+        $self tools-dir ensure mount
     }
     
     method mount-sysfs {} {
@@ -213,13 +220,71 @@ snit::type fedora-cloud-buildimg {
         $self sudo-exec-echo umount $options(-mount-dir)/proc
         $self sudo-exec-echo umount $options(-mount-dir)/sys 
         $self sudo-exec-echo umount $options(-mount-dir)/dev
+
+        $self upload-dir ensure umount
+        $self tools-dir ensure umount
     }
+
+    method {upload-dir ensure} meth {
+        if {[$self upload-dir exists]} {
+            $self upload-dir $meth
+        }
+    }
+    method {upload-dir exists} {} {
+        expr {$options(-upload-dir) ne "" && [file isdirectory $options(-upload-dir)]}
+    }
+    method {upload-dir mount} {} {
+        set destDir $options(-mount-dir)$options(-upload-to)
+        if {![file exists $destDir]} {
+            $self sudo-exec-echo \
+                mkdir -p $destDir
+        }
+        $self sudo-exec-echo \
+            mount --bind $options(-upload-dir) $destDir
+    }
+    method {upload-dir rsync-sysroot} {} {
+        set uploadDir $options(-mount-dir)$options(-upload-to)
+        $self sudo-exec-echo \
+            rsync -av $uploadDir/sysroot/ $options(-mount-dir)
+    }
+    method {upload-dir umount} {} {
+        $self sudo-exec-echo umount $options(-mount-dir)$options(-upload-to)
+    }
+
+    method {tools-dir ensure} meth {
+        if {[$self tools-dir exists]} {
+            $self tools-dir $meth
+        }
+    }
+    method {tools-dir exists} {} {
+        expr {$options(-tools-dir) ne "" && [file isdirectory $options(-tools-dir)]}
+    }
+    method {tools-dir mount} {} {
+        set destDir $options(-mount-dir)$options(-tools-copy-to)
+        if {![file exists $destDir]} {
+            $self sudo-exec-echo \
+                mkdir -p $destDir
+        }
+        $self sudo-exec-echo \
+            mount --bind $options(-tools-dir) $destDir
+    }
+    method {tools-dir rsync-sysroot} {} {
+        set uploadDir $options(-mount-dir)$options(-tools-copy-to)
+        $self sudo-exec-echo \
+            rsync -av $uploadDir/sysroot/ $options(-mount-dir)
+    }
+    method {tools-dir umount} {} {
+        $self sudo-exec-echo umount $options(-mount-dir)$options(-tools-copy-to)
+    }
+
 
     option -xterm mlterm
 
     method {gce install} {} {
         $self sudo-exec-echo \
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
+
+        $self upload-dir ensure rsync-sysroot
 
         if {$options(-update-all)} {
             $self chroot-exec-echo \
