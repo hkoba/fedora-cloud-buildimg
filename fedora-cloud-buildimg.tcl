@@ -208,7 +208,8 @@ snit::type fedora-cloud-buildimg {
         set packFn
     }
     method {gce image-name-for} srcXZFn {
-        return $options(-platform)-[file rootname [file rootname [file tail $srcXZFn]]].tar.gz
+        file join [file dirname $srcXZFn] \
+            $options(-platform)-[file rootname [file rootname [file tail $srcXZFn]]].tar.gz
     }
     method {gce raw-name-for} args {
         return disk.raw
