@@ -39,7 +39,7 @@ snit::type fedora-cloud-buildimg {
     option -keep-raw 0
 
     option -platform gce
-    option -mount-dir /mnt/tmp
+    option -mount-dir /mnt/disk
 
     option -dist-url https://download.fedoraproject.org/pub/fedora/linux/releases/%d/Cloud/x86_64/images/
 
