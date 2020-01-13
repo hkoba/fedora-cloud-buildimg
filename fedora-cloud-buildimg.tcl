@@ -250,7 +250,7 @@ snit::type fedora-cloud-buildimg {
         $self sudo-exec-echo umount $admkitDir
         
         $self sudo-exec-echo \
-            rsync -av $options(-admkit-dir) $admkitDir
+            rsync -av $options(-admkit-dir)/ $admkitDir
     }
 
 
