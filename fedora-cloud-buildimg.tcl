@@ -212,6 +212,7 @@ snit::type fedora-cloud-buildimg {
     }
 
     method umount-sysfs {} {
+        if {![file exists $options(-mount-dir)/proc/cpuinfo]} return
         $self sudo-exec-echo umount $options(-mount-dir)/proc
         $self sudo-exec-echo umount $options(-mount-dir)/sys 
         $self sudo-exec-echo umount $options(-mount-dir)/dev
