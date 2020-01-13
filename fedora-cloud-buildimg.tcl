@@ -221,6 +221,10 @@ snit::type fedora-cloud-buildimg {
     method {admkit-dir ensure} meth {
         if {[$self admkit-dir exists]} {
             $self admkit-dir $meth
+        } else {
+            if {$options(-verbose)} {
+                puts "# admkit-dir is missing, skipped."
+            }
         }
     }
     method {admkit-dir exists} {} {
