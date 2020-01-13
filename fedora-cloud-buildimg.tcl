@@ -118,10 +118,50 @@ snit::type fedora-cloud-buildimg {
     method prepare-mount srcXZFn {
         set destRawFn [$self traced prepare-raw $srcXZFn]
         set mountDir [$self traced mount-image $destRawFn]
+        if {[set errors [$self selinux list-errors]] ne ""} {
+            puts "# found selinux errors ($errors)."
+        }
+        set mountDir
+    }
+
+    option -selinux-checklist {
+        system_u:object_r:init_exec_t:s0   /usr/lib/systemd/systemd
+        system_u:object_r:shadow_t:s0      /etc/gshadow
+        system_u:object_r:shadow_t:s0      /etc/gshadow-
+        system_u:object_r:passwd_file_t:s0 /etc/passwd
+        system_u:object_r:passwd_file_t:s0 /etc/passwd-
+        system_u:object_r:shadow_t:s0      /etc/shadow
+        system_u:object_r:shadow_t:s0      /etc/shadow-
+    }
+    method {selinux list-errors} {} {
+        set files []
+        set wants [dict create]
+        foreach {want base} $options(-selinux-checklist) {
+            set fn $options(-mount-dir)$base
+            if {[file exists $fn]} {
+                lappend files $fn
+                dict set wants $fn $want
+            }
+        }
+        set nErrors []
+        foreach line [split [exec ls -1Z {*}$files] \n] {
+            lassign $line actual fn
+            if {$actual ne [dict get $wants $fn]} {
+                lappend nErrors [list $fn got $actual \
+                                     expect [dict get $wants $fn]]
+            }
+        }
+        set nErrors
     }
 
     method finalize {srcXZFn {destRawFn ""}} {
         $self traced $options(-platform) cleanup
+
+        if {[set errors [$self selinux list-errors]] ne ""} {
+            puts "# found selinux errors ($errors)."
+            $self sudo-exec-echo \
+                touch $options(-mount-dir)/.autorelabel
+        }
 
         if {$options(-keep-mount)} {
             $self sudo-exec-echo \
@@ -268,6 +308,10 @@ snit::type fedora-cloud-buildimg {
         } else {
             $self chroot-exec-echo \
                 dnf -vvvv update -y fedora-gpg-keys
+        }
+
+        if {[set errors [$self selinux list-errors]] ne ""} {
+            puts "# found selinux errors ($errors)."
         }
 
         $self chroot-exec-echo \
