@@ -106,8 +106,6 @@ snit::type fedora-cloud-buildimg {
     method build-from {srcXZFn args} {
         $self traced prepare-mount $srcXZFn
 
-        $self traced common prepare
-
         $self traced $options(-platform) install
         
         if {$args ne ""} {
@@ -335,6 +333,12 @@ snit::type fedora-cloud-buildimg {
     #----------------------------------------
 
     method mount-image {diskImg {mountDir ""}} {
+        $self mount-image-raw $diskImg $mountDir
+        
+        $self common prepare
+    }
+
+    method mount-image-raw {diskImg {mountDir ""}} {
         set mountDir [string-or $mountDir $options(-mount-dir)]
         $self run exec sudo mount \
             -t auto \
