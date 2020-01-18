@@ -258,6 +258,13 @@ snit::type fedora-cloud-buildimg {
         $self sudo-exec-echo umount $options(-mount-dir)/dev
     }
 
+    method copy-from {dn args} {
+        foreach dn [list $dn {*}$args] {
+            $self traced run self sudo-exec-echo \
+                rsync -a $dn/ $options(-mount-dir)$dn
+        }
+    }
+
     method {admkit-dir ensure} meth {
         if {[$self admkit-dir exists]} {
             $self admkit-dir $meth
