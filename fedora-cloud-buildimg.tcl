@@ -48,9 +48,16 @@ snit::type fedora-cloud-buildimg {
     option -update-all no
     option -additional-packages {zsh perl git tcl tcllib}
 
+    option -use-systemd-nspawn ""
+
     constructor args {
         $self configurelist $args
         set ::env(LANG) C
+        
+        if {$options(-use-systemd-nspawn) eq ""} {
+            set options(-use-systemd-nspawn) \
+                [expr {[auto_execok systemd-nspawn] ne ""}]
+        }
     }
 
     #========================================
@@ -225,7 +232,9 @@ snit::type fedora-cloud-buildimg {
         $self sudo-exec-echo \
             cp /etc/resolv.conf $options(-mount-dir)/etc
         
-        $self mount-sysfs
+        if {!$options(-use-systemd-nspawn)} {
+            $self mount-sysfs
+        }
         
         $self admkit-dir ensure mount
     }
@@ -343,7 +352,9 @@ snit::type fedora-cloud-buildimg {
 
         set dev [$self find-loop-device]
 
-        $self umount-sysfs
+        if {!$options(-use-systemd-nspawn)} {
+            $self umount-sysfs
+        }
         
         $self sudo-exec-echo \
             umount -AR $options(-mount-dir)
@@ -380,7 +391,14 @@ snit::type fedora-cloud-buildimg {
     }
 
     method chroot-exec-echo args {
-        $self run exec -ignorestderr sudo chroot $options(-mount-dir) \
+        
+        set cmd [if {$options(-use-systemd-nspawn)} {
+            list sudo systemd-nspawn -D
+        } else {
+            list sudo chroot
+        }]
+
+        $self run exec -ignorestderr {*}$cmd $options(-mount-dir) \
             {*}$args \
             >@ stdout 2>@ stderr
 
