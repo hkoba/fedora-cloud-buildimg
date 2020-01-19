@@ -236,10 +236,14 @@ snit::type fedora-cloud-buildimg {
     }
 
     method {common prepare} {} {
-        $self sudo-exec-echo \
-            cp /etc/resolv.conf $options(-mount-dir)/etc
         
+        $self runtime mount
+
         if {!$options(-use-systemd-nspawn)} {
+
+            $self sudo-exec-echo \
+                cp /etc/resolv.conf $options(-mount-dir)/etc
+
             $self mount-sysfs
         }
         
@@ -373,6 +377,8 @@ snit::type fedora-cloud-buildimg {
 
         set dev [$self find-loop-device]
 
+        $self runtime umount
+
         if {!$options(-use-systemd-nspawn)} {
             $self umount-sysfs
         }
@@ -414,12 +420,13 @@ snit::type fedora-cloud-buildimg {
     method chroot-exec-echo args {
         
         set cmd [if {$options(-use-systemd-nspawn)} {
-            list sudo systemd-nspawn -D
+            list sudo systemd-nspawn -D $options(-mount-dir) \
+                $options(-runtime-to)/run-with-rw-selinuxfs.sh
         } else {
-            list sudo chroot
+            list sudo chroot $options(-mount-dir)
         }]
 
-        $self run exec -ignorestderr {*}$cmd $options(-mount-dir) \
+        $self run exec -ignorestderr {*}$cmd \
             {*}$args \
             >@ stdout 2>@ stderr
 
