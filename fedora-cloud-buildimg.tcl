@@ -41,6 +41,9 @@ snit::type fedora-cloud-buildimg {
     option -admkit-dir ""
     option -admkit-to /root/admkit
 
+    option -runtime-dir ""
+    option -runtime-to /root/runtime
+
     option -dist-url https://download.fedoraproject.org/pub/fedora/linux/releases/%d/Cloud/x86_64/images/
 
     option -image-glob Fedora-Cloud-Base-*.raw.xz
@@ -57,6 +60,10 @@ snit::type fedora-cloud-buildimg {
         if {$options(-use-systemd-nspawn) eq ""} {
             set options(-use-systemd-nspawn) \
                 [expr {[auto_execok systemd-nspawn] ne ""}]
+        }
+        if {$options(-runtime-dir) eq ""} {
+            set options(-runtime-dir) \
+                [set ::fedora-cloud-buildimg::scriptDir]/runtime
         }
     }
 
@@ -272,6 +279,20 @@ snit::type fedora-cloud-buildimg {
             $self traced run self sudo-exec-echo \
                 rsync -a $dn/ $options(-mount-dir)$dn
         }
+    }
+
+    method {runtime mount} {} {
+        set destDir $options(-mount-dir)$options(-runtime-to)
+        if {![file exists $destDir]} {
+            $self sudo-exec-echo \
+                mkdir -p $destDir
+        }
+        $self sudo-exec-echo \
+            mount --bind $options(-runtime-dir) $destDir
+    }
+    method {runtime umount} {} {
+        set destDir $options(-mount-dir)$options(-runtime-to)
+        $self sudo-exec-echo umount $destDir
     }
 
     method {admkit-dir ensure} meth {
