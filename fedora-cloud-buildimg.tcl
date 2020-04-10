@@ -234,7 +234,8 @@ snit::type fedora-cloud-buildimg {
     # platform specific installation
     #
     method {gce pack-to} {packFn rawFn} {
-        $self run exec tar zcf $packFn $rawFn \
+        # use --auto selection of compression
+        $self run exec tar caf $packFn $rawFn \
             >@ stdout 2>@ stderr
         set packFn
     }
