@@ -39,7 +39,7 @@ snit::type fedora-cloud-buildimg {
     option -platform gce
     option -mount-dir /mnt/disk
     option -admkit-dir ""
-    option -admkit-to /root/admkit
+    option -admkit-to /admkit
 
     option -runtime-dir ""
     option -runtime-to /root/runtime
@@ -322,11 +322,6 @@ snit::type fedora-cloud-buildimg {
         $self sudo-exec-echo \
             mount --bind $options(-admkit-dir) $destDir
     }
-    method {admkit-dir rsync-sysroot} {} {
-        set admkitDir $options(-mount-dir)$options(-admkit-to)
-        $self sudo-exec-echo \
-            rsync -av $admkitDir/sysroot/ $options(-mount-dir)
-    }
     method {admkit-dir umount-and-copy} {} {
         set admkitDir $options(-mount-dir)$options(-admkit-to)
 
@@ -342,8 +337,6 @@ snit::type fedora-cloud-buildimg {
     method {gce install} {} {
         $self sudo-exec-echo \
             rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
-
-        $self admkit-dir ensure rsync-sysroot
 
         if {$options(-update-all)} {
             $self chroot-exec-echo \
