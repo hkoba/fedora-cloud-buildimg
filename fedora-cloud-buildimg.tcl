@@ -149,6 +149,7 @@ snit::type fedora-cloud-buildimg {
         system_u:object_r:shadow_t:s0      /etc/shadow-
     }
     method {selinux list-errors} {} {
+        if {$options(-dry-run)} return
         set files []
         set wants [dict create]
         foreach {want base} $options(-selinux-checklist) {
