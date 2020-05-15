@@ -47,6 +47,7 @@ snit::type fedora-cloud-buildimg {
     option -dist-url https://download.fedoraproject.org/pub/fedora/linux/releases/%d/Cloud/x86_64/images/
 
     option -image-glob Fedora-Cloud-Base-*.raw.xz
+    option -image-dir imgs
 
     option -update-all no
     option -additional-packages {zsh perl git tcl tcllib}
@@ -92,11 +93,11 @@ snit::type fedora-cloud-buildimg {
         set result
     }
     method {image download} url {
-        set fn [file tail $url]
+        set fn [file join $options(-image-dir) [file tail $url]]
         if {![file exists $fn]
             || ![$self confirm-yes "File $fn already exists. Reuse it? \[Y/n\] "]
         } {
-            exec -ignorestderr curl -O $url 2>@ stderr
+            exec -ignorestderr curl -o $fn $url 2>@ stderr
         }
         set fn
     }
