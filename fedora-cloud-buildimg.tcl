@@ -41,6 +41,8 @@ snit::type fedora-cloud-buildimg {
     option -admkit-dir ""
     option -admkit-to /admkit
 
+    option -source-sysroot ""
+
     option -runtime-dir ""
     option -runtime-to /root/runtime
 
@@ -65,6 +67,13 @@ snit::type fedora-cloud-buildimg {
         if {$options(-runtime-dir) eq ""} {
             set options(-runtime-dir) \
                 [set ::fedora-cloud-buildimg::scriptDir]/runtime
+        }
+        if {$options(-source-sysroot) eq ""} {
+            set options(-source-sysroot) [$self appdir]/sysroot
+        } else {
+            if {[regexp /$ $options(-source-sysroot)]} {
+                error "-source-sysroot must end with /"
+            }
         }
     }
 
@@ -282,9 +291,15 @@ snit::type fedora-cloud-buildimg {
 
     method copy-from {dn args} {
         foreach dn [list $dn {*}$args] {
+            # XXX: rewrite with sudo-rsync
             $self traced run self sudo-exec-echo \
                 rsync -a $dn/ $options(-mount-dir)$dn
         }
+    }
+
+    method sudo-rsync {srcDir destDir} {
+        $self traced run self sudo-exec-echo \
+            rsync -av $srcDir/ $options(-mount-dir)$destDir
     }
 
     method {runtime mount} {} {
@@ -336,7 +351,7 @@ snit::type fedora-cloud-buildimg {
 
     method {gce install} {} {
         $self sudo-exec-echo \
-            rsync -av [$self appdir]/sysroot/ $options(-mount-dir)
+            rsync -av $options(-source-sysroot)/ $options(-mount-dir)
 
         if {$options(-update-all)} {
             $self chroot-exec-echo \
