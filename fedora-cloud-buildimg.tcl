@@ -350,9 +350,6 @@ snit::type fedora-cloud-buildimg {
     option -xterm mlterm
 
     method {gce install} {} {
-        $self sudo-exec-echo \
-            rsync -av $options(-source-sysroot)/ $options(-mount-dir)
-
         if {$options(-update-all)} {
             $self chroot-exec-echo \
                 dnf -vvvv update -y --allowerasing {*}[$self dnf-options]
@@ -369,6 +366,9 @@ snit::type fedora-cloud-buildimg {
             dnf -vvvv install -y --allowerasing {*}[$self dnf-options]\
             {*}$options(-additional-packages) \
             google-compute-engine-tools
+
+        $self sudo-exec-echo \
+            rsync -av $options(-source-sysroot)/ $options(-mount-dir)
     }
     
     method {gce cleanup} {} {
