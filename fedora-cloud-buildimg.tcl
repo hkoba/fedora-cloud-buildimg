@@ -518,6 +518,14 @@ snit::type fedora-cloud-buildimg {
             $cmd {*}$args
         }
     }
+    
+    method source {scriptFn args} {
+        if {$options(-dry-run) || $options(-verbose)} {
+            puts "# source $scriptFn $args"
+        }
+        uplevel #0 [list apply [list {self args} [list source $scriptFn]] \
+                        $self {*}$args]
+    }
 
     #----------------------------------------
     # 改行時は yes と解釈する
