@@ -56,6 +56,16 @@ snit::type fedora-cloud-buildimg {
 
     option -use-systemd-nspawn ""
 
+    option -rsync-options {
+        --recursive
+        --links
+        --times
+        --devices --specials
+        -uvz
+        --no-owner
+        --chown=root:root
+    }
+
     constructor args {
         $self configurelist $args
         set ::env(LANG) C
@@ -293,16 +303,17 @@ snit::type fedora-cloud-buildimg {
     }
 
     method copy-from {dn args} {
-        foreach dn [list $dn {*}$args] {
-            # XXX: rewrite with sudo-rsync
-            $self traced run self sudo-exec-echo \
-                rsync -a $dn/ $options(-mount-dir)$dn
-        }
+        $self sudo-rsync $dn/ $dn {*}$args
     }
 
-    method sudo-rsync {srcDir destDir} {
+    method sudo-rsync {srcDir destDir args} {
+        set opts [if {$args eq ""} {
+            set options(-rsync-options)
+        } else {
+            set args
+        }]
         $self traced run self sudo-exec-echo \
-            rsync -av $srcDir/ $options(-mount-dir)$destDir
+            rsync -v {*}$opts $srcDir/ $options(-mount-dir)$destDir
     }
 
     method {runtime mount} {} {
@@ -370,10 +381,16 @@ snit::type fedora-cloud-buildimg {
             {*}$options(-additional-packages) \
             google-compute-engine-tools
 
-        $self sudo-exec-echo \
-            rsync -av $options(-source-sysroot)/ $options(-mount-dir)
+        $self rsync-sysroot
     }
     
+    method rsync-sysroot {} {
+        $self sudo-exec-echo \
+            rsync \
+            {*}$options(-rsync-options) \
+            $options(-source-sysroot)/ $options(-mount-dir)
+    }
+
     method {gce cleanup} {} {
         $self chroot-exec-echo \
             dnf clean all
