@@ -327,6 +327,7 @@ snit::type fedora-cloud-buildimg {
     }
     method {runtime umount} {} {
         set destDir $options(-mount-dir)$options(-runtime-to)
+        if {![file exists $destDir/.MOUNTED]} return
         $self sudo-exec-echo umount $destDir
     }
 
