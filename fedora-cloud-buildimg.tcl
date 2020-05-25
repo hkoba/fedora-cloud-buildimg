@@ -99,6 +99,10 @@ snit::type fedora-cloud-buildimg {
         $self image download [$self image latest $ver]
     }
 
+    method {image fakename} {} {
+        file join $options(-image-dir) [file tail [$self image latest $options(-fedora-version)]]
+    }
+
     method {image latest} ver {
         if {[set url_list [$self image list $ver]] eq ""} {
             error "Can't find download url for Fedora $ver"
@@ -236,7 +240,7 @@ snit::type fedora-cloud-buildimg {
         }
 
         if {$destImageFn eq ""} {
-            set destImageFn [$self $options(-platform) image-name-for $srcXZFn]
+            set destImageFn [$self $options(-platform) image-name-for [$self image fakename]]
         }
         if {$destRawFn eq ""} {
             set destRawFn [$self $options(-platform) raw-name-for]
