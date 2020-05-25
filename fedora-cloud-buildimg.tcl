@@ -36,6 +36,8 @@ snit::type fedora-cloud-buildimg {
     option -keep-mount 0
     option -keep-raw 0
 
+    option -fedora-version ""
+
     option -platform gce
     option -mount-dir /mnt/disk
     option -admkit-dir ""
@@ -50,6 +52,7 @@ snit::type fedora-cloud-buildimg {
 
     option -image-glob Fedora-Cloud-Base-*.raw.xz
     option -image-dir imgs
+    option -source-image ""
 
     option -update-all no
     option -additional-packages {zsh perl git tcl tcllib}
@@ -85,14 +88,22 @@ snit::type fedora-cloud-buildimg {
                 error "-source-sysroot must end with /"
             }
         }
+        if {$options(-fedora-version) eq ""} {
+            set options(-fedora-version) \
+                [$self host-fedora-version]
+        }
     }
 
     #========================================
     method {image prepare} ver {
+        $self image download [$self image latest $ver]
+    }
+
+    method {image latest} ver {
         if {[set url_list [$self image list $ver]] eq ""} {
             error "Can't find download url for Fedora $ver"
         }
-        $self image download [lindex $url_list 0]
+        lindex $url_list 0
     }
 
     method {image list} {ver} {
@@ -132,24 +143,43 @@ snit::type fedora-cloud-buildimg {
     }
 
     #========================================
+    method build args {
+        
+        if {![string is integer $options(-fedora-version)]} {
+            error "Please specify fedora-version (in integer): $options(-fedora-version)"
+        }
+
+        $self build-version $options(-fedora-version) {*}$args
+
+    }
+
     method build-version {ver args} {
-        set fn [$self image prepare $ver]
-        $self build-from $fn {*}$args
+        if {$options(-source-image) eq ""} {
+            set options(-source-image) [$self image prepare $ver]
+        }
+        $self build-from $options(-source-image) {*}$args
     }
 
     method build-from {srcXZFn args} {
         $self traced prepare-mount $srcXZFn
 
-        $self traced $options(-platform) install
-        
-        if {$args ne ""} {
+        if {$args eq ""} {
+            $self traced $options(-platform) install
+        } else {
             $self traced {*}$args
         }
 
-        $self traced finalize $srcXZFn
+        $self traced finalize
     }
 
     method prepare-mount srcXZFn {
+        if {[$self find-loop-device] ne ""} {
+            if {![$self confirm-yes "$options(-mount-dir) is already mounted. Reuse it? \[Y/n\] "]} {
+                error "Aborted"
+            }
+            return $options(-mount-dir)
+        }
+
         set destRawFn [$self traced prepare-raw $srcXZFn]
         set mountDir [$self traced mount-image $destRawFn]
         if {[set errors [$self selinux list-errors]] ne ""} {
@@ -189,7 +219,7 @@ snit::type fedora-cloud-buildimg {
         set nErrors
     }
 
-    method finalize {srcXZFn {destRawFn ""}} {
+    method finalize {{destImageFn ""} {destRawFn ""}} {
         $self traced $options(-platform) cleanup
 
         if {[set errors [$self selinux list-errors]] ne ""} {
@@ -205,12 +235,15 @@ snit::type fedora-cloud-buildimg {
             $self traced umount
         }
 
+        if {$destImageFn eq ""} {
+            set destImageFn [$self $options(-platform) image-name-for $srcXZFn]
+        }
         if {$destRawFn eq ""} {
-            set destRawFn [$self raw-name-for $srcXZFn]
+            set destRawFn [$self $options(-platform) raw-name-for]
         }
 
         set resultFn [$self traced $options(-platform) pack-to \
-                          [$self $options(-platform) image-name-for $srcXZFn]\
+                          $destImageFn\
                           $destRawFn]
         if {!$options(-keep-raw)} {
             $self run file delete $destRawFn
@@ -529,8 +562,27 @@ snit::type fedora-cloud-buildimg {
     }
 
     #----------------------------------------
+    method host-fedora-version {} {
+        set dict [$self os-release]
+        if {[dict get $dict ID] eq "fedora"} {
+            dict get $dict VERSION_ID
+        }
+    }
+    
+    method os-release {} {
+        set dict [dict create]
+        foreach line [$self read_file_lines /etc/os-release] {
+            if {[regexp {^([^=]+)=(.*)} $line -> key value]} {
+                dict set dict $key [lindex $value 0]
+            }
+        }
+        set dict
+    }
+
+    #----------------------------------------
     # 改行時は yes と解釈する
     method confirm-yes message {
+        # TODO: $options(-yes) support
         puts -nonewline $message
         flush stdout
         gets stdin yn
