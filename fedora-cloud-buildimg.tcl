@@ -55,6 +55,7 @@ snit::type fedora-cloud-buildimg {
     option -source-image ""
 
     option -update-all no
+    option -update-excludes kernel-core
     option -additional-packages {zsh perl git tcl tcllib}
 
     option -use-systemd-nspawn ""
@@ -402,9 +403,14 @@ snit::type fedora-cloud-buildimg {
     option -xterm mlterm
 
     method {gce install} {} {
+        set opts []
+        foreach s $options(-update-excludes) {
+            lappend opts --excludepkgs=$s
+        }
         if {$options(-update-all)} {
             $self chroot-exec-echo \
-                dnf -vvvv update -y --allowerasing {*}[$self dnf-options]
+                dnf -vvvv update -y --allowerasing \
+                {*}$opts {*}[$self dnf-options]
         } else {
             $self chroot-exec-echo \
                 dnf -vvvv update -y fedora-gpg-keys
@@ -478,6 +484,16 @@ snit::type fedora-cloud-buildimg {
                 return $dev
             }
         }
+    }
+
+    method with-fake-machine-id args {
+        $self chroot-exec-echo env MACHINE_ID=[$self get-fake-bls-machine-id] \
+            {*}$args
+    }
+
+    method get-fake-bls-machine-id {} {
+        set files [exec sudo chroot $options(-mount-dir) tclsh << {puts [glob -tails -directory /boot/loader/entries *.conf]}]
+        regexp -inline {^[0-9a-f]{32,}} [lindex $files 0]
     }
 
     method sudo-exec-echo args {
