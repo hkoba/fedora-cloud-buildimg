@@ -128,11 +128,14 @@ snit::type fedora-cloud-buildimg {
         set result
     }
     method {image download} url {
+        if {![file exists $options(-image-dir)]} {
+            $self run file mkdir $options(-image-dir)
+        }
         set fn [file join $options(-image-dir) [file tail $url]]
         if {![file exists $fn]
             || ![$self confirm-yes "File $fn already exists. Reuse it? \[Y/n\] "]
         } {
-            exec -ignorestderr curl -o $fn $url 2>@ stderr
+            $self run exec -ignorestderr curl -o $fn $url 2>@ stderr
         }
         set fn
     }
