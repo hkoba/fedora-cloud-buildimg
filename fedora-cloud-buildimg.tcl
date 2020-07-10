@@ -522,9 +522,50 @@ snit::type fedora-cloud-buildimg {
     #----------------------------------------
 
     method mount-image {diskImg {mountDir ""}} {
+        $self ensure-image-size $diskImg
+
         $self mount-image-raw $diskImg $mountDir
         
         $self common prepare
+    }
+
+    option -min-image-size
+
+    proc parse-size size {
+        expr [string map {
+            G *1024*1024*1024
+            M *1024*1024
+        } $size]
+    }
+
+    method ensure-image-size diskImg {
+
+        if {$options(-min-image-size) eq ""} return
+
+        set minSize [parse-size $options(-min-image-size)]
+        set curSize [file size $diskImg]
+
+        if {$curSize >= $minSize} return
+
+        $self run exec fallocate -l $minSize $diskImg \
+            >@ stdout 2>@ stderr
+
+        set loopDev [exec sudo losetup -f]
+
+        $self run exec sudo losetup \
+            -o [$self read-start-offset $diskImg] \
+            $loopDev $diskImg \
+            >@ stdout 2>@ stderr
+        
+        $self run exec sudo resize2fs $loopDev \
+            >@ stdout 2>@ stderr
+        
+        $self run exec sudo fsck $loopDev \
+            >@ stdout 2>@ stderr
+        
+        $self run exec sudo losetup \
+            -d $loopDev \
+            >@ stdout 2>@ stderr
     }
 
     method mount-image-raw {diskImg {mountDir ""}} {
