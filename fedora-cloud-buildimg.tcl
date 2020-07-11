@@ -575,6 +575,16 @@ snit::type fedora-cloud-buildimg {
         set loopDev
     }
 
+    method prepare-wholedisk-loopdev {diskImg} {
+        set loopDev [exec sudo losetup -f]
+
+        $self run exec sudo losetup \
+            $loopDev $diskImg \
+            >@ stdout 2>@ stderr
+        
+        set loopDev
+    }
+
     method mount-image-raw {diskImg {mountDir ""}} {
         set mountDir [string-or $mountDir $options(-mount-dir)]
         $self run exec sudo mount \
