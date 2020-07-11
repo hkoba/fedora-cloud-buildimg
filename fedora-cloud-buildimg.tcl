@@ -550,18 +550,23 @@ snit::type fedora-cloud-buildimg {
         $self run exec fallocate -l $minSize $diskImg \
             >@ stdout 2>@ stderr
 
-        
-        set loopDev [$self prepare-part-loopdev $diskImg]
 
-        $self run exec sudo resize2fs $loopDev \
-            >@ stdout 2>@ stderr
+        $self with-part-loopdev loopDev $diskImg {
+            $self run exec sudo resize2fs $loopDev \
+                >@ stdout 2>@ stderr
         
-        $self run exec sudo fsck $loopDev \
-            >@ stdout 2>@ stderr
-        
-        $self run exec sudo losetup \
-            -d $loopDev \
-            >@ stdout 2>@ stderr
+            $self run exec sudo fsck $loopDev \
+                >@ stdout 2>@ stderr
+        }
+    }
+
+    method with-part-loopdev {varName diskImg command} {
+        upvar 1 $varName loopDev
+        set loopDev [$self prepare-part-loopdev $diskImg]
+        scope_guard loopDev [list $self run exec sudo losetup \
+                                 -d $loopDev \
+                                 >@ stdout 2>@ stderr]
+        uplevel 1 $command
     }
 
     method prepare-part-loopdev {diskImg} {
