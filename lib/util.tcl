@@ -36,3 +36,9 @@ proc posix-getopt {argVar {dict ""} {shortcut ""}} {
 
     list {*}$dict {*}$result
 }
+
+proc scope_guard {varName command} {
+    upvar 1 $varName var
+    uplevel 1 [list trace add variable $varName unset \
+                   [list apply [list args $command]]]
+}
