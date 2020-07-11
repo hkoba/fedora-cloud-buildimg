@@ -550,13 +550,9 @@ snit::type fedora-cloud-buildimg {
         $self run exec fallocate -l $minSize $diskImg \
             >@ stdout 2>@ stderr
 
-        set loopDev [exec sudo losetup -f]
-
-        $self run exec sudo losetup \
-            -o [$self read-start-offset $diskImg] \
-            $loopDev $diskImg \
-            >@ stdout 2>@ stderr
         
+        set loopDev [$self prepare-part-loopdev $diskImg]
+
         $self run exec sudo resize2fs $loopDev \
             >@ stdout 2>@ stderr
         
@@ -566,6 +562,17 @@ snit::type fedora-cloud-buildimg {
         $self run exec sudo losetup \
             -d $loopDev \
             >@ stdout 2>@ stderr
+    }
+
+    method prepare-part-loopdev {diskImg} {
+        set loopDev [exec sudo losetup -f]
+
+        $self run exec sudo losetup \
+            -o [$self read-start-offset $diskImg] \
+            $loopDev $diskImg \
+            >@ stdout 2>@ stderr
+        
+        set loopDev
     }
 
     method mount-image-raw {diskImg {mountDir ""}} {
