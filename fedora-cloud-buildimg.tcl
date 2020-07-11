@@ -545,17 +545,21 @@ snit::type fedora-cloud-buildimg {
         set minSize [parse-size $options(-min-image-size)]
         set curSize [file size $diskImg]
 
-        if {$curSize >= $minSize} return
+        set diff [expr {$minSize - $curSize}]
 
-        $self run exec fallocate -l $minSize $diskImg \
+        if {$diff <= 0} return
+
+        $self run exec fallocate -l $diff \
+            --offset $curSize --zero-range \
+            $diskImg \
             >@ stdout 2>@ stderr
 
         $self with-wholedisk-loopdev loopDiskDev $diskImg {
             $self run exec sudo growpart $loopDiskDev 1 \
                 >@ stdout 2>@ stderr
-        }
 
-        $self with-part-loopdev loopDev $diskImg {
+            set loopDev ${loopDiskDev}p1
+
             $self run exec sudo resize2fs $loopDev \
                 >@ stdout 2>@ stderr
         
@@ -596,6 +600,7 @@ snit::type fedora-cloud-buildimg {
         set loopDev [exec sudo losetup -f]
 
         $self run exec sudo losetup \
+            --partscan \
             $loopDev $diskImg \
             >@ stdout 2>@ stderr
         
