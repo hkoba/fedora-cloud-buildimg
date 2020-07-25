@@ -366,7 +366,7 @@ snit::type fedora-cloud-buildimg {
             set args
         }]
         $self traced run self sudo-exec-echo \
-            rsync -v {*}$opts $srcDir/ $options(-mount-dir)$destDir
+            rsync {*}$opts $srcDir/ $options(-mount-dir)$destDir
     }
 
     method {runtime mount} {} {
@@ -437,11 +437,11 @@ snit::type fedora-cloud-buildimg {
         }
         if {$options(-update-all)} {
             $self chroot-exec-echo \
-                dnf -vvvv update -y --allowerasing \
+                dnf update -y --allowerasing \
                 {*}$opts {*}[$self dnf-options]
         } else {
             $self chroot-exec-echo \
-                dnf -vvvv update -y fedora-gpg-keys
+                dnf update -y fedora-gpg-keys
         }
 
         if {[set errors [$self selinux list-errors]] ne ""} {
@@ -456,7 +456,7 @@ snit::type fedora-cloud-buildimg {
         }
 
         $self chroot-exec-echo \
-            dnf -vvvv install -y --allowerasing {*}[$self dnf-options]\
+            dnf install -y --allowerasing {*}[$self dnf-options]\
             {*}[$self additional-packages] \
             google-compute-engine-tools
 
