@@ -57,6 +57,8 @@ snit::type fedora-cloud-buildimg {
     option -update-all no
     option -update-excludes kernel-core
     option -additional-packages {zsh perl git tcl tcllib}
+    option -additional-packages-from ""; #
+
     option -remove-cloud-init ""
 
     option -use-systemd-nspawn ""
@@ -441,12 +443,20 @@ snit::type fedora-cloud-buildimg {
 
         $self chroot-exec-echo \
             dnf -vvvv install -y --allowerasing {*}[$self dnf-options]\
-            {*}$options(-additional-packages) \
+            {*}[$self additional-packages] \
             google-compute-engine-tools
 
         $self rsync-sysroot
     }
     
+    method additional-packages {} {
+        set pkgList $options(-additional-packages)
+        if {[set glob $options(-additional-packages-from)] ne ""} {
+            lappend pkgList {*}[fileutil::cat {*}[glob -nocomplain $glob]]
+        }
+        set pkgList
+    }
+
     method rsync-sysroot {} {
         $self sudo-exec-echo \
             rsync \
