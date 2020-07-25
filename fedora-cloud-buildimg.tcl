@@ -563,7 +563,7 @@ snit::type fedora-cloud-buildimg {
             $self run exec sudo resize2fs $loopDev \
                 >@ stdout 2>@ stderr
         
-            $self run exec sudo fsck $loopDev \
+            $self run exec sudo fsck -y $loopDev \
                 >@ stdout 2>@ stderr
         }
     }
