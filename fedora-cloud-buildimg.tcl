@@ -42,6 +42,7 @@ snit::type fedora-cloud-buildimg {
     option -mount-dir /mnt/disk
     option -admkit-dir ""
     option -admkit-to /admkit
+    option -admkit-use-mount no
 
     option -source-sysroot ""
 
@@ -323,7 +324,7 @@ snit::type fedora-cloud-buildimg {
             $self mount-sysfs
         }
         
-        $self admkit-dir ensure mount
+        $self admkit-dir ensure visible
     }
     
     method mount-sysfs {} {
@@ -395,24 +396,37 @@ snit::type fedora-cloud-buildimg {
     method {admkit-dir exists} {} {
         expr {$options(-admkit-dir) ne "" && [file isdirectory $options(-admkit-dir)]}
     }
+    method {admkit-dir hostpath} {} {
+        return $options(-mount-dir)$options(-admkit-to)
+    }
+    method {admkit-dir visible} {} {
+        if {$options(-admkit-use-mount)} {
+            $self admkit-dir mount
+        } else {
+            $self admkit-dir copy
+        }
+    }
     method {admkit-dir mount} {} {
-        set destDir $options(-mount-dir)$options(-admkit-to)
+        set destDir [$self admkit-dir hostpath]
         if {![file exists $destDir]} {
             $self sudo-exec-echo \
                 mkdir -p $destDir
         }
+
         $self sudo-exec-echo \
             mount --bind $options(-admkit-dir) $destDir
     }
-    method {admkit-dir umount-and-copy} {} {
-        set admkitDir $options(-mount-dir)$options(-admkit-to)
 
-        $self sudo-exec-echo umount $admkitDir
-        
-        $self sudo-exec-echo \
-            rsync -av $options(-admkit-dir)/ $admkitDir
+    method {admkit-dir umount-and-copy} {} {
+        if {!$options(-admkit-use-mount)} return
+        $self sudo-exec-echo umount [$self admkit-dir hostpath]
+        $self admkit-dir copy
     }
 
+    method {admkit-dir copy} {} {
+        $self sudo-exec-echo \
+            rsync -a $options(-admkit-dir)/ [$self admkit-dir hostpath]
+    }
 
     option -xterm mlterm
 
