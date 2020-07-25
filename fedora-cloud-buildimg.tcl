@@ -57,6 +57,7 @@ snit::type fedora-cloud-buildimg {
     option -update-all no
     option -update-excludes kernel-core
     option -additional-packages {zsh perl git tcl tcllib}
+    option -remove-cloud-init ""
 
     option -use-systemd-nspawn ""
 
@@ -421,6 +422,13 @@ snit::type fedora-cloud-buildimg {
 
         if {[set errors [$self selinux list-errors]] ne ""} {
             puts "# found selinux errors ($errors)."
+        }
+
+        if {$options(-remove-cloud-init) eq ""
+            || $options(-remove-cloud-init)
+        } {
+            puts "# removing cloud-init"
+            $self chroot-exec-echo dnf remove -y cloud-init
         }
 
         $self chroot-exec-echo \
