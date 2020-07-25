@@ -84,11 +84,19 @@ snit::type fedora-cloud-buildimg {
                 [set ::fedora-cloud-buildimg::scriptDir]/runtime
         }
         if {$options(-source-sysroot) eq ""} {
-            set options(-source-sysroot) [$self appdir]/sysroot
+            set options(-source-sysroot) [if {[file isdirectory sysroot]} {
+                file normalize sysroot
+            } else {
+                concat [$self appdir]/sysroot
+            }]
         } else {
             if {[regexp /$ $options(-source-sysroot)]} {
                 error "-source-sysroot must end with /"
             }
+        }
+        if {$options(-admkit-dir) eq ""
+            && [file isdirectory $options(-source-sysroot)$options(-admkit-to)]} {
+            set options(-admkit-dir) $options(-source-sysroot)$options(-admkit-to)
         }
         if {$options(-fedora-version) eq ""} {
             set options(-fedora-version) \
