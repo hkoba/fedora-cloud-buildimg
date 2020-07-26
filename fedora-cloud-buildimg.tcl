@@ -66,15 +66,15 @@ snit::type fedora-cloud-buildimg {
 
     option -use-systemd-nspawn ""
 
-    option -rsync-options {
+    option -rsync-common-options {
         --recursive
         --links
         --times
-        --devices --specials
-        -uvz
-        --no-owner
-        --chown=root:root
+        --devices
+        --specials
     }
+    
+    option -rsync-chown root:root
 
     constructor args {
         $self configurelist $args
@@ -362,13 +362,18 @@ snit::type fedora-cloud-buildimg {
     }
 
     method sudo-rsync {srcDir destDir args} {
-        set opts [if {$args eq ""} {
-            set options(-rsync-options)
-        } else {
-            set args
-        }]
         $self traced run self sudo-exec-echo \
-            rsync {*}$opts $srcDir/ $options(-mount-dir)$destDir
+            rsync {*}[$self rsync-options $args] \
+            $srcDir/ $options(-mount-dir)$destDir
+    }
+
+    method rsync-options {{arglist ""}} {
+        set opts $options(-rsync-common-options)
+        lappend opts {*}[if {$arglist ne ""} {
+            set arglist
+        } else {
+            list --owner --group --chown=$options(-rsync-chown)
+        }] 
     }
 
     method {runtime mount} {} {
@@ -488,7 +493,7 @@ snit::type fedora-cloud-buildimg {
     method rsync-sysroot {} {
         $self sudo-exec-echo \
             rsync \
-            {*}$options(-rsync-options) \
+            {*}[$self rsync-options] \
             $options(-source-sysroot)/ $options(-mount-dir)
     }
 
