@@ -38,6 +38,8 @@ snit::type fedora-cloud-buildimg {
 
     option -fedora-version ""
 
+    option -copr-list ""
+
     option -platform gce
     option -mount-dir /mnt/disk
     option -admkit-dir ""
@@ -425,12 +427,24 @@ snit::type fedora-cloud-buildimg {
 
     method {admkit-dir copy} {} {
         $self sudo-exec-echo \
-            rsync -a $options(-admkit-dir)/ [$self admkit-dir hostpath]
+            rsync {*}[$self rsync-options \
+                          [list --owner --group --chown=adm:adm \
+                               --perms --chmod=Dg+s,ug+w,Fo-w,+X]] \
+            $options(-admkit-dir)/ [$self admkit-dir hostpath]
+        
+        $self chroot-exec-echo \
+            restorecon -vr $options(-admkit-to)
     }
 
     option -xterm mlterm
 
     method {gce install} {} {
+
+        foreach copr $options(-copr-list) {
+            $self traced run self chroot-exec-echo \
+                dnf copr enable -y $copr
+        }
+
         set opts []
         foreach s $options(-update-excludes) {
             lappend opts --excludepkgs=$s
