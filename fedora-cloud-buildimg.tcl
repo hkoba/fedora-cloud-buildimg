@@ -368,9 +368,21 @@ snit::type fedora-cloud-buildimg {
     }
 
     method sudo-rsync {srcDir destDir args} {
+        set auth_sock [if {[info exists ::env(SSH_AUTH_SOCK)]
+                           && [regexp {^\w+@\w+:} $srcDir]} {
+            list env SSH_AUTH_SOCK=$::env(SSH_AUTH_SOCK)
+        }]
+        regsub {^\w+@\w+:} $destDir {} destDir
+        set realDest $options(-mount-dir)$destDir
+        if {![file isdirectory $realDest]} {
+            $self traced run self sudo-exec-echo \
+                mkdir -vp $realDest
+        }
+
         $self traced run self sudo-exec-echo \
+            {*}$auth_sock \
             rsync {*}[$self rsync-options $args] \
-            $srcDir/ $options(-mount-dir)$destDir
+            $srcDir/ $realDest
     }
 
     method rsync-options {{arglist ""}} {
