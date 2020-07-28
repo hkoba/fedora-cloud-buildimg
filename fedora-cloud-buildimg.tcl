@@ -445,6 +445,8 @@ snit::type fedora-cloud-buildimg {
 
     method {gce install} {} {
 
+        $self rsync-sysroot
+
         foreach copr $options(-copr-list) {
             $self traced run self chroot-exec-echo \
                 dnf copr enable -y $copr
