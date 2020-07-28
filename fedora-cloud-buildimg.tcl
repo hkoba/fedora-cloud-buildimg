@@ -40,6 +40,8 @@ snit::type fedora-cloud-buildimg {
 
     option -copr-list ""
 
+    option -run-before-umount ""
+
     option -platform gce
     option -mount-dir /mnt/disk
     option -admkit-dir ""
@@ -248,6 +250,10 @@ snit::type fedora-cloud-buildimg {
             puts "# found selinux errors ($errors)."
             $self sudo-exec-echo \
                 touch $options(-mount-dir)/.autorelabel
+        }
+
+        if {$options(-run-before-umount) ne ""} {
+            $self chroot-exec-echo {*}$options(-run-before-umount)
         }
 
         if {$options(-keep-mount)} {
