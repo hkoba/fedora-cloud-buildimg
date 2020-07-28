@@ -492,11 +492,12 @@ snit::type fedora-cloud-buildimg {
         set pkgList
     }
 
-    method rsync-sysroot {} {
+    method rsync-sysroot args {
         $self sudo-exec-echo \
             rsync \
             {*}[$self rsync-options] \
             --exclude=admkit/ \
+            {*}$args \
             $options(-source-sysroot)/ $options(-mount-dir)
     }
 
