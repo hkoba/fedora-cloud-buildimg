@@ -588,8 +588,9 @@ snit::type fedora-cloud-buildimg {
     method chroot-exec-echo args {
         
         set cmd [if {$options(-use-systemd-nspawn)} {
+            set wrapper $options(-runtime-to)/run-with-rw-selinuxfs.sh
             list sudo systemd-nspawn -D $options(-mount-dir) \
-                $options(-runtime-to)/run-with-rw-selinuxfs.sh
+                {*}[if {[file exists $wrapper]} {set wrapper}]
         } else {
             list sudo chroot $options(-mount-dir)
         }]
