@@ -379,10 +379,12 @@ snit::type fedora-cloud-buildimg {
                 mkdir -vp $realDest
         }
 
+        regsub {/*\Z} $srcDir / srcDir
+
         $self traced run self sudo-exec-echo \
             {*}$auth_sock \
             rsync {*}[$self rsync-options $args] \
-            $srcDir/ $realDest
+            $srcDir $realDest
     }
 
     method rsync-options {{arglist ""}} {
