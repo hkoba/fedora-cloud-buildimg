@@ -185,15 +185,15 @@ snit::type fedora-cloud-buildimg {
     }
 
     method build-from {srcXZFn args} {
-        $self traced prepare-mount $srcXZFn
+        $self traced self prepare-mount $srcXZFn
 
         if {$args eq ""} {
-            $self traced $options(-platform) install
+            $self traced self $options(-platform) install
         } else {
-            $self traced {*}$args
+            $self traced self {*}$args
         }
 
-        $self traced finalize
+        $self traced self finalize
     }
 
     method prepare-mount srcXZFn {
@@ -204,8 +204,8 @@ snit::type fedora-cloud-buildimg {
             return $options(-mount-dir)
         }
 
-        set destRawFn [$self traced prepare-raw $srcXZFn]
-        set mountDir [$self traced mount-image $destRawFn]
+        set destRawFn [$self traced self prepare-raw $srcXZFn]
+        set mountDir [$self traced self mount-image $destRawFn]
         if {[set errors [$self selinux list-errors]] ne ""} {
             puts "# found selinux errors ($errors)."
         }
@@ -244,7 +244,7 @@ snit::type fedora-cloud-buildimg {
     }
 
     method finalize {{destImageFn ""} {destRawFn ""}} {
-        $self traced $options(-platform) cleanup
+        $self traced self $options(-platform) cleanup
 
         if {[set errors [$self selinux list-errors]] ne ""} {
             puts "# found selinux errors ($errors)."
@@ -260,7 +260,7 @@ snit::type fedora-cloud-buildimg {
             $self sudo-exec-echo \
                 mount -o remount,ro $options(-mount-dir)
         } else {
-            $self traced umount
+            $self traced self umount
         }
 
         if {$destImageFn eq ""} {
@@ -270,7 +270,7 @@ snit::type fedora-cloud-buildimg {
             set destRawFn [$self $options(-platform) raw-name-for]
         }
 
-        set resultFn [$self traced $options(-platform) pack-to \
+        set resultFn [$self traced self $options(-platform) pack-to \
                           $destImageFn\
                           $destRawFn]
         if {!$options(-keep-raw)} {
@@ -375,13 +375,13 @@ snit::type fedora-cloud-buildimg {
         regsub {^\w+@\w+:} $destDir {} destDir
         set realDest $options(-mount-dir)$destDir
         if {![file isdirectory $realDest]} {
-            $self traced run self sudo-exec-echo \
+            $self traced self sudo-exec-echo \
                 mkdir -vp $realDest
         }
 
         regsub {/*\Z} $srcDir / srcDir
 
-        $self traced run self sudo-exec-echo \
+        $self traced self sudo-exec-echo \
             {*}$auth_sock \
             rsync {*}[$self rsync-options $args] \
             $srcDir $realDest
@@ -468,7 +468,7 @@ snit::type fedora-cloud-buildimg {
         $self rsync-sysroot
 
         foreach copr $options(-copr-list) {
-            $self traced run self chroot-exec-echo \
+            $self traced self chroot-exec-echo \
                 dnf copr enable -y $copr
         }
 
@@ -714,16 +714,20 @@ snit::type fedora-cloud-buildimg {
     }
 
     method read-partitions diskImg {
-        set json [$self run exec sfdisk -J $diskImg]
+        set json [$self traced exec sfdisk -J $diskImg]
         dict get [::json::json2dict $json] partitiontable partitions
     }
 
     #----------------------------------------
-    method traced args {
+    method traced {cmd args} {
         if {$options(-dry-run) || $options(-verbose)} {
             puts "# self $args"
         }
-        $self {*}$args
+        if {$cmd eq "self"} {
+            $self {*}$args
+        } else {
+            $cmd {*}$args
+        }
     }
 
     method run {cmd args} {
