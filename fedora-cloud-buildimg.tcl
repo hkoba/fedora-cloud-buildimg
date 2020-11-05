@@ -731,10 +731,14 @@ snit::type fedora-cloud-buildimg {
     }
 
     method run {cmd args} {
+        $self dry-run-if {$options(-dry-run)} $cmd {*}$args
+    }
+
+    method dry-run-if {condition cmd args} {
         if {$options(-dry-run) || $options(-verbose)} {
             puts "# $cmd $args"
         }
-        if {$options(-dry-run)} {
+        if {[uplevel 1 [list expr $condition]]} {
             return
         }
         if {$cmd eq "self"} {
