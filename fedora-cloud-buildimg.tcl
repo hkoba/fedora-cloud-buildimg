@@ -31,6 +31,7 @@ namespace eval fedora-cloud-buildimg {
 snit::type fedora-cloud-buildimg {
 
     option -dry-run no
+    option -dry-run-unpack no
     option -verbose 1
     option -force no
     option -keep-mount 0
@@ -289,7 +290,9 @@ snit::type fedora-cloud-buildimg {
         if {$destRawFn eq ""} {
             set destRawFn [$self raw-name-for $srcXZFn]
         }
-        $self run exec xzcat $srcXZFn > $destRawFn
+        $self dry-run-if {
+            $options(-dry-run) && $options(-dry-run-unpack)
+        } exec xzcat $srcXZFn > $destRawFn
         set destRawFn
     }
     method raw-name-for srcXZFn {
@@ -543,8 +546,12 @@ snit::type fedora-cloud-buildimg {
             $self umount-sysfs
         }
         
-        $self sudo-exec-echo \
-            umount -AR $options(-mount-dir)
+        $self dry-run-if {
+            $options(-dry-run) && $options(-dry-run-unpack)
+        } exec sudo \
+            umount -AR $options(-mount-dir) \
+             >@ stdout 2>@ stderr
+
         if {$dev in [$self list-used-loop-devices]} {
             $self sudo-exec-echo \
                 losetup -d $dev
@@ -693,7 +700,9 @@ snit::type fedora-cloud-buildimg {
 
     method mount-image-raw {diskImg {mountDir ""}} {
         set mountDir [string-or $mountDir $options(-mount-dir)]
-        $self run exec sudo mount \
+        $self dry-run-if {
+            $options(-dry-run) && $options(-dry-run-unpack)
+        } exec sudo mount \
             -t auto \
             -o loop,offset=[$self read-start-offset $diskImg] \
             $diskImg $mountDir
@@ -705,7 +714,7 @@ snit::type fedora-cloud-buildimg {
     }
 
     method read-start-section {diskImg {partNo 0}} {
-        if {$options(-dry-run) && ![file readable $diskImg]} {
+        if {$options(-dry-run) && $options(-dry-run-unpack)} {
             puts "# ...using fake sector number"
             return 2048
         } else {
