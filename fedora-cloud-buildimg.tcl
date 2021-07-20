@@ -68,6 +68,8 @@ snit::type fedora-cloud-buildimg {
     option -remove-cloud-init ""
 
     option -use-systemd-nspawn ""
+    option -systemd-nspawn-options {}
+
 
     option -rsync-common-options {
         --recursive
@@ -599,6 +601,7 @@ snit::type fedora-cloud-buildimg {
         set cmd [if {$options(-use-systemd-nspawn)} {
             set wrapper $options(-runtime-to)/run-with-rw-selinuxfs.sh
             list sudo systemd-nspawn -D $options(-mount-dir) \
+                {*}$options(-systemd-nspawn-options) \
                 {*}[if {[file exists $wrapper]} {set wrapper}]
         } else {
             list sudo chroot $options(-mount-dir)
