@@ -196,6 +196,8 @@ snit::type fedora-cloud-buildimg {
             $self traced self {*}$args
         }
 
+        $self traced self common cleanup
+
         $self traced self finalize
     }
 
@@ -204,15 +206,19 @@ snit::type fedora-cloud-buildimg {
             if {![$self confirm-yes "$options(-mount-dir) is already mounted. Reuse it? \[Y/n\] "]} {
                 error "Aborted"
             }
+
+            $self common prepare
+
             return $options(-mount-dir)
+        } else {
+            set destRawFn [$self traced self prepare-raw $srcXZFn]
+            set mountDir [$self traced self mount-image $destRawFn]
+            if {[set errors [$self selinux list-errors]] ne ""} {
+                puts "# found selinux errors ($errors)."
+            }
+            set mountDir
         }
 
-        set destRawFn [$self traced self prepare-raw $srcXZFn]
-        set mountDir [$self traced self mount-image $destRawFn]
-        if {[set errors [$self selinux list-errors]] ne ""} {
-            puts "# found selinux errors ($errors)."
-        }
-        set mountDir
     }
 
     option -selinux-checklist {
@@ -246,7 +252,7 @@ snit::type fedora-cloud-buildimg {
         set nErrors
     }
 
-    method finalize {{destImageFn ""} {destRawFn ""}} {
+    method {common cleanup} {} {
         $self traced self $options(-platform) cleanup
 
         if {[set errors [$self selinux list-errors]] ne ""} {
@@ -265,7 +271,9 @@ snit::type fedora-cloud-buildimg {
         } else {
             $self traced self umount
         }
+    }
 
+    method finalize {{destImageFn ""} {destRawFn ""}} {
         if {$destImageFn eq ""} {
             set destImageFn [$self $options(-platform) image-name-for [$self image fakename]]
         }
