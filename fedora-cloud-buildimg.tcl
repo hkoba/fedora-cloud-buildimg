@@ -519,14 +519,10 @@ snit::type fedora-cloud-buildimg {
                 dnf copr enable -y $copr
         }
 
-        set opts []
-        foreach s $options(-update-excludes) {
-            lappend opts --excludepkgs=$s
-        }
         if {$options(-update-all)} {
             $self chroot-exec-echo \
                 dnf update -y --allowerasing \
-                {*}$opts {*}[$self dnf-options]
+                {*}[$self dnf-options]
         } else {
             $self chroot-exec-echo \
                 dnf update -y fedora-gpg-keys
@@ -845,9 +841,14 @@ snit::type fedora-cloud-buildimg {
         return [file dirname [set ${type}::realScriptFile]]/$options(-platform)
     }
     method dnf-options {} {
-        if {$options(-force)} {
-            list --nogpgcheck
+        set opts []
+        foreach s $options(-update-excludes) {
+            lappend opts --excludepkgs=$s
         }
+        if {$options(-force)} {
+            lappend opts --nogpgcheck
+        }
+        set opts
     }
     method read_file_lines {fn} {
         set fh [open $fn]
