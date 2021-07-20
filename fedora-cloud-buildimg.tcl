@@ -335,11 +335,45 @@ snit::type fedora-cloud-buildimg {
                 cp /etc/resolv.conf $options(-mount-dir)/etc
 
             $self mount-sysfs
+        } elseif {[$self does-etc-resolv-link-to-run-ramdisk]} {
+            if {$options(-systemd-nspawn-options) eq ""} {
+                set tmpDir [fileutil::maketempdir]
+                lappend options(-systemd-nspawn-options) \
+                    --bind=$tmpDir:/run/systemd/resolve \
+                    --resolv-conf=bind-static
+            } else {
+                if {[$self is-etc-resolv-configured-for-systemd-nspawn]} {
+                    puts stderr "#WARN: Please make sure --systemd-nspawn-options to have correct --resolv-conf and --bind"
+                } else {
+                    puts "systemd-nspawn-options=$options(-systemd-nspawn-options)"
+                }
+            }
         }
         
         $self admkit-dir ensure visible
     }
-    
+
+    method does-etc-resolv-link-to-run-ramdisk {{fn ""}} {
+        if {$fn eq ""} {
+            set fn $options(-mount-dir)/etc/resolv.conf
+        }
+        expr {
+              ![file exists $fn]
+              &&
+              [string match ../run/* [file link $fn]]
+          }
+    }
+
+    method is-etc-resolv-configured-for-systemd-nspawn {} {
+        expr {
+              $options(-systemd-nspawn-options) ne ""
+              &&
+              [lsearch $options(-systemd-nspawn-options) --resolv-conf=*] >= 0
+              &&
+              [lsearch $options(-systemd-nspawn-options) --bind=*] >= 0
+          }
+    }
+
     method mount-sysfs {} {
         $self sudo-exec-echo \
             mount -t proc /proc $options(-mount-dir)/proc
@@ -530,8 +564,10 @@ snit::type fedora-cloud-buildimg {
         $self chroot-exec-echo \
             dnf clean all
 
-        $self sudo-exec-echo \
-            cp /dev/null $options(-mount-dir)/etc/resolv.conf
+        if {![$self does-etc-resolv-link-to-run-ramdisk]} {
+            $self sudo-exec-echo \
+                cp /dev/null $options(-mount-dir)/etc/resolv.conf
+        }
 
         $self chroot-exec-echo \
             fstrim /
