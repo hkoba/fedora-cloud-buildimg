@@ -202,6 +202,10 @@ snit::type fedora-cloud-buildimg {
     }
 
     method prepare-mount srcXZFn {
+        if {![file exists $options(-mount-dir)]} {
+            $self sudo-exec-echo \
+                mkdir $options(-mount-dir)
+        }
         if {[$self find-loop-device] ne ""} {
             if {![$self confirm-yes "$options(-mount-dir) is already mounted. Reuse it? \[Y/n\] "]} {
                 error "Aborted"
@@ -688,15 +692,16 @@ snit::type fedora-cloud-buildimg {
             $diskImg \
             >@ stdout 2>@ stderr
 
+        set partNo [$self find-main-partition-number $diskImg]
+
         $self with-wholedisk-loopdev loopDiskDev $diskImg {
-            $self run exec sudo growpart $loopDiskDev 1 \
+            set loopDev ${loopDiskDev}p$partNo
+
+            $self run exec sudo growpart $loopDiskDev $partNo \
                 >@ stdout 2>@ stderr
 
-            set loopDev ${loopDiskDev}p1
+            $self extend-filesystem $loopDev
 
-            $self run exec sudo resize2fs $loopDev \
-                >@ stdout 2>@ stderr
-        
             $self run exec sudo fsck -y $loopDev \
                 >@ stdout 2>@ stderr
         }
@@ -704,18 +709,19 @@ snit::type fedora-cloud-buildimg {
 
     method with-part-loopdev {varName diskImg command} {
         upvar 1 $varName loopDev
-        set loopDev [$self prepare-part-loopdev $diskImg]
+        set partNo 1; # XXX
+        set loopDev [$self prepare-part-loopdev $diskImg $partNo]
         scope_guard loopDev [list $self run exec sudo losetup \
                                  -d $loopDev \
                                  >@ stdout 2>@ stderr]
         uplevel 1 $command
     }
 
-    method prepare-part-loopdev {diskImg} {
+    method prepare-part-loopdev {diskImg partNo} {
         set loopDev [exec sudo losetup -f]
 
         $self run exec sudo losetup \
-            -o [$self read-start-offset $diskImg] \
+            -o [$self read-start-offset $diskImg $partNo] \
             $loopDev $diskImg \
             >@ stdout 2>@ stderr
         
@@ -725,7 +731,8 @@ snit::type fedora-cloud-buildimg {
     method with-wholedisk-loopdev {varName diskImg command} {
         upvar 1 $varName loopDev
         set loopDev [$self prepare-wholedisk-loopdev $diskImg]
-        scope_guard loopDev [list $self run exec sudo losetup \
+        scope_guard loopDev [list $self ignore-error \
+                                 self run exec sudo losetup \
                                  -d $loopDev \
                                  >@ stdout 2>@ stderr]
         uplevel 1 $command
@@ -743,12 +750,23 @@ snit::type fedora-cloud-buildimg {
 
     method mount-image-raw {diskImg {mountDir ""}} {
         set mountDir [string-or $mountDir $options(-mount-dir)]
-        $self dry-run-if {
-            $options(-dry-run) && $options(-dry-run-unpack)
-        } exec sudo mount \
-            -t auto \
-            -o loop,offset=[$self read-start-offset $diskImg] \
-            $diskImg $mountDir
+        # XXX: device name starts with 1.
+        set partNo [expr {[$self find-main-partition-number $diskImg] - 1}]
+        set loopDev [$self prepare-part-loopdev $diskImg $partNo]
+
+        if {[$self read-fstype $loopDev] eq "btrfs"} {
+            $self dry-run-if {
+                $options(-dry-run) && $options(-dry-run-unpack)
+            } exec sudo mount -t auto -o subvol=/root $loopDev $mountDir
+            $self dry-run-if {
+                $options(-dry-run) && $options(-dry-run-unpack)
+            } exec sudo mount -t auto -o subvol=/home $loopDev $mountDir/home
+        } else {
+            $self dry-run-if {
+                $options(-dry-run) && $options(-dry-run-unpack)
+            } exec sudo mount -t auto $loopDev $mountDir
+        }
+
         set options(-mount-dir) $mountDir
     }
 
@@ -765,12 +783,92 @@ snit::type fedora-cloud-buildimg {
         }
     }
 
+    variable myPartInfoCache -array {}
     method read-partitions diskImg {
-        set json [$self traced exec sfdisk -J $diskImg]
-        dict get [::json::json2dict $json] partitiontable partitions
+        set vn myPartInfoCache($diskImg)
+        if {![info exists $vn]} {
+            set json [$self traced exec -ignorestderr sfdisk -J $diskImg 2>@ stderr]
+            puts $json
+            set $vn [::json::json2dict $json]
+        }
+        dict get [set $vn] partitiontable partitions
+    }
+
+    method read-device {device args} {
+        # Note: Don't cache this method because it needs settling time.
+        set json [$self traced exec lsblk -Jf $device]
+        puts stderr $json
+        set devices [dict get [::json::json2dict $json] blockdevices]
+        if {[llength $devices] >= 2} {
+            error "Multiple device found"
+        }
+        set deviceInfo [lindex $devices 0]
+        if {$args ne ""} {
+            dict get $deviceInfo {*}$args
+        } else {
+            set deviceInfo
+        }
+    }
+
+    method find-main-partition-number diskImg {
+        # Note: returns device name number (starting with 1, not 0)
+        llength [$self read-partitions $diskImg]
+    }
+
+    variable myFSTypeCache -array {}
+    method read-fstype device {
+        set vn myFSTypeCache($device)
+        if {![info exists $vn]} {
+            set wait 0
+            while {[set fstype [$self traced self read-device $device fstype]] eq "null"} {
+                if {[incr wait] == 1} {
+                    puts -nonewline "Waiting fstype detection "
+                }
+                after 300
+                puts -nonewline "."
+            }
+            if {$wait} {
+                puts "OK"
+            }
+            set $vn $fstype
+        }
+        set $vn
+    }
+
+    method extend-filesystem device {
+        set fstype [$self read-fstype $device]
+        switch -glob $fstype {
+            ext[234] {
+                $self run exec sudo resize2fs $device \
+                    >@ stdout 2>@ stderr
+            }
+            btrfs {
+                set tmpMnt [fileutil::maketempdir]
+                $self run exec sudo mount $device $tmpMnt \
+                    >@ stdout 2>@ stderr
+                scope_guard tmpMnt [list $self run exec sudo umount $device \
+                                        >@ stdout 2>@ stderr]
+                $self run exec sudo btrfs filesystem resize max $tmpMnt \
+                    >@ stdout 2>@ stderr
+            }
+            default {
+                error "Can't find resize command for fstype: $fstype"
+            }
+        }
     }
 
     #----------------------------------------
+    method ignore-error {cmd args} {
+        if {[catch {
+            if {$cmd eq "self"} {
+                $self {*}$args
+            } else {
+                $cmd {*}$args
+            }
+        } error]} {
+            puts stderr $error
+        }
+    }
     method traced {cmd args} {
         if {$options(-dry-run) || $options(-verbose)} {
             puts "# self $args"
