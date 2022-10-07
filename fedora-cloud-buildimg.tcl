@@ -50,6 +50,7 @@ snit::type fedora-cloud-buildimg {
     option -admkit-use-mount no
 
     option -source-sysroot ""
+    option -overlay-sysroot-list ""
 
     option -runtime-dir ""
     option -runtime-to /root/runtime
@@ -560,12 +561,17 @@ snit::type fedora-cloud-buildimg {
     }
 
     method rsync-sysroot args {
-        $self sudo-exec-echo \
-            rsync \
-            {*}[$self rsync-options] \
-            --exclude=admkit/ \
-            {*}$args \
-            $options(-source-sysroot)/ $options(-mount-dir)
+
+        foreach src [list $options(-source-sysroot) \
+                         {*}$options(-overlay-sysroot-list)] {
+            $self sudo-exec-echo \
+                rsync \
+                {*}[$self rsync-options] \
+                --exclude=admkit/ \
+                {*}$args \
+                $src/ $options(-mount-dir)
+        }
+
     }
 
     method {gce cleanup} {} {
